@@ -59,6 +59,22 @@ jobs:
           Write-Output "Installing vcpkg packages from vcpkg.json (this may take a while)..."
           # Build static triplet because the project expects x64-windows-static libs/headers
           & C:\vcpkg\vcpkg.exe install --triplet x64-windows-static
+      - name: Verify vcpkg installation
+        shell: powershell
+        run: |
+          Write-Output "Listing installed vcpkg packages:"
+          & C:\vcpkg\vcpkg.exe list
+          Write-Output "Checking for opus headers in installed include path:"
+          $includePath = 'C:\vcpkg\installed\x64-windows-static\include'
+          if (Test-Path $includePath) {
+            if (Test-Path (Join-Path $includePath 'opus')) {
+              Get-ChildItem -Path (Join-Path $includePath 'opus') | Select-Object FullName
+            } else {
+              Write-Output "opus folder not found under $includePath"
+            }
+          } else {
+            Write-Output "$includePath does not exist"
+          }
       - name: Build RustDesk
         run: python build.py --portable --skip-portable-pack
       - name: Show build outputs
