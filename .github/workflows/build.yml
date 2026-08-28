@@ -16,6 +16,19 @@ jobs:
           target: x86_64-pc-windows-msvc
       - name: Install NASM
         run: choco install nasm -y
+      - name: Install vcpkg
+        shell: powershell
+        run: |
+          if (-Not (Test-Path C:\vcpkg)) {
+            git clone https://github.com/microsoft/vcpkg C:\vcpkg
+            & C:\vcpkg\bootstrap-vcpkg.bat
+          }
+          Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=C:\\vcpkg"
+      - name: Install vcpkg dependencies
+        shell: powershell
+        run: |
+          Write-Output "Installing necessary vcpkg packages (this may take a while)..."
+          & C:\vcpkg\vcpkg.exe install opus:x64-windows
       - name: Build RustDesk
         run: python build.py --portable --skip-portable-pack
       - name: Show build outputs
