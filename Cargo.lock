@@ -2882,9 +2882,9 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge"
-version = "1.80.1"
+version = "1.80.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd0305ebc9f097d9826530a55fc2acd63222e912c663f7adce3ab641ecc0f346"
+checksum = "e4ee39ecdd9dfdb3e09b79a70b66ca08121fe45faa51dd48eca44e8ef9a35474"
 dependencies = [
  "allo-isolate",
  "anyhow",
@@ -2908,9 +2908,9 @@ dependencies = [
 
 [[package]]
 name = "flutter_rust_bridge_macros"
-version = "1.82.6"
+version = "1.80.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7fe743d921bedf4578b9472346d03a9643a01cd565ca7df7961baebad534ba5"
+checksum = "cc887139af749c010fbb7d6e8f4e68ef6397c4ba7321938e473a828218b14eb0"
 
 [[package]]
 name = "fnv"
@@ -4046,7 +4046,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core 0.51.1",
 ]
 
 [[package]]
@@ -4488,7 +4488,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e310b3a6b5907f99202fcdb4960ff45b93735d7c7d96b760fcff8db2dc0e103d"
 dependencies = [
  "cfg-if 1.0.0",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]

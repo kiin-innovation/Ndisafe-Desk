@@ -1,0 +1,25 @@
+name: Build Windows
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+      - name: Install NASM
+        run: choco install nasm -y
+      - name: Build RustDesk
+        run: python build.py --portable --skip-portable-pack
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ndisafe-desk-windows
+          path: target/release/*.exe

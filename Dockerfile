@@ -3,6 +3,9 @@ FROM debian:bullseye-slim
 WORKDIR /
 ARG DEBIAN_FRONTEND=noninteractive
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
+ENV SODIUM_USE_PKG_CONFIG=1
+ENV SODIUM_SHARED=1
+ENV SODIUM_LIB_DIR=/usr/lib/x86_64-linux-gnu
 RUN apt update -y && \
     apt install --yes --no-install-recommends \
         g++ \
@@ -21,6 +24,12 @@ RUN apt update -y && \
         libasound2-dev \
         libpulse-dev \
         make \
+        build-essential \
+        pkg-config \
+        autoconf \
+        automake \
+        libtool \
+        libsodium-dev \
         wget \
         libssl-dev \
         unzip \

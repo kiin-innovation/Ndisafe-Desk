@@ -31,6 +31,8 @@ else()
     )
 endif()
 
+vcpkg_replace_string("${SOURCE_PATH}/build/cmake/aom_optimization.cmake" "execute_process(COMMAND \${CMAKE_ASM_NASM_COMPILER} -hf\n                  OUTPUT_VARIABLE nasm_helptext)" "execute_process(COMMAND \${CMAKE_ASM_NASM_COMPILER} -h -O OUTPUT_VARIABLE _nasm_opt)\n  execute_process(COMMAND \${CMAKE_ASM_NASM_COMPILER} -hf OUTPUT_VARIABLE _nasm_fmt)\n  string(CONCAT nasm_helptext \"\${_nasm_opt}\" \"\${_nasm_fmt}\")")
+
 set(aom_target_cpu "")
 if(VCPKG_TARGET_IS_UWP OR (VCPKG_TARGET_IS_WINDOWS AND VCPKG_TARGET_ARCHITECTURE MATCHES "^arm"))
     # UWP + aom's assembler files result in weirdness and build failures
