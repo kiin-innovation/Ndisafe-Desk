@@ -75,7 +75,7 @@ jobs:
           } else {
             Write-Output "$includePath does not exist"
           }
-      - name: Fallback: install opus if headers missing
+      - name: Fallback - install opus if headers missing
         shell: powershell
         run: |
           $opusInclude = 'C:\vcpkg\installed\x64-windows-static\include\opus'
