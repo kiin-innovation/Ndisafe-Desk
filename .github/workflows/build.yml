@@ -21,10 +21,13 @@ jobs:
             C:\\Users\\runneradmin\\.cargo\\registry
             C:\\Users\\runneradmin\\.cargo\\git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Cache vcpkg installed
+      - name: Cache vcpkg (installed, buildtrees, packages)
         uses: actions/cache@v4
         with:
-          path: C:\\vcpkg\\installed
+          path: |
+            C:\\vcpkg\\installed
+            C:\\vcpkg\\buildtrees
+            C:\\vcpkg\\packages
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/vcpkg.json') }}
       - name: Install NASM
         run: choco install nasm -y
