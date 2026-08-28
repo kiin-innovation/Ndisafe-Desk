@@ -54,7 +54,8 @@ jobs:
         shell: powershell
         run: |
           Write-Output "Installing vcpkg packages from vcpkg.json (this may take a while)..."
-          & C:\vcpkg\vcpkg.exe install --triplet x64-windows
+          # Build static triplet because the project expects x64-windows-static libs/headers
+          & C:\vcpkg\vcpkg.exe install --triplet x64-windows-static
       - name: Build RustDesk
         run: python build.py --portable --skip-portable-pack
       - name: Show build outputs
