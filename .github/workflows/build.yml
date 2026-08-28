@@ -18,8 +18,18 @@ jobs:
         run: choco install nasm -y
       - name: Build RustDesk
         run: python build.py --portable --skip-portable-pack
+      - name: Show build outputs
+        shell: powershell
+        run: |
+          if (Test-Path target\release) {
+            Get-ChildItem -Path target\release -Recurse | Select-Object FullName, Length
+          } else {
+            Write-Output 'No target\release directory found'
+          }
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ndisafe-desk-windows
-          path: target/release/*.exe
+          path: |
+            target/release/*.exe
+            target/release/**/*.exe
