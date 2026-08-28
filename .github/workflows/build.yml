@@ -80,8 +80,9 @@ jobs:
         run: |
           $opusInclude = 'C:\vcpkg\installed\x64-windows-static\include\opus'
           if (-Not (Test-Path $opusInclude)) {
-            Write-Output "Opus headers missing; installing opus:x64-windows-static via vcpkg..."
-            & C:\vcpkg\vcpkg.exe install opus:x64-windows-static
+            Write-Output "Opus headers missing; installing opus:x64-windows-static via vcpkg (classic mode)..."
+            # Force classic mode to allow installing an individual package despite manifest mode
+            & C:\vcpkg\vcpkg.exe install opus:x64-windows-static --classic
           } else {
             Write-Output "Opus headers already present; skipping install."
           }
