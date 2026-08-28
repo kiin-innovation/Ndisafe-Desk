@@ -50,11 +50,11 @@ jobs:
           } else {
             Write-Output "sccache not found at $sccachePath"
           }
-      - name: Install vcpkg dependencies
+      - name: Install vcpkg dependencies (manifest)
         shell: powershell
         run: |
-          Write-Output "Installing necessary vcpkg packages (this may take a while)..."
-          & C:\vcpkg\vcpkg.exe install opus:x64-windows
+          Write-Output "Installing vcpkg packages from vcpkg.json (this may take a while)..."
+          & C:\vcpkg\vcpkg.exe install --triplet x64-windows
       - name: Build RustDesk
         run: python build.py --portable --skip-portable-pack
       - name: Show build outputs
