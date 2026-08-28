@@ -14,6 +14,18 @@ jobs:
         with:
           toolchain: stable
           target: x86_64-pc-windows-msvc
+        - name: Cache Cargo registry and git
+          uses: actions/cache@v4
+          with:
+            path: |
+              C:\\Users\\runneradmin\\.cargo\\registry
+              C:\\Users\\runneradmin\\.cargo\\git
+            key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        - name: Cache vcpkg installed
+          uses: actions/cache@v4
+          with:
+            path: C:\\vcpkg\\installed
+            key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/vcpkg.json') }}
       - name: Install NASM
         run: choco install nasm -y
       - name: Install vcpkg
@@ -24,6 +36,20 @@ jobs:
             & C:\vcpkg\bootstrap-vcpkg.bat
           }
           Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=C:\\vcpkg"
+      - name: Install sccache
+        shell: powershell
+        run: |
+          Write-Output "Installing sccache..."
+          cargo install sccache --locked
+      - name: Configure sccache
+        shell: powershell
+        run: |
+          $sccachePath = "$env:USERPROFILE\\.cargo\\bin\\sccache.exe"
+          if (Test-Path $sccachePath) {
+            Add-Content -Path $env:GITHUB_ENV -Value "RUSTC_WRAPPER=$sccachePath"
+          } else {
+            Write-Output "sccache not found at $sccachePath"
+          }
       - name: Install vcpkg dependencies
         shell: powershell
         run: |
