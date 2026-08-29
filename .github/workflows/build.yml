@@ -98,6 +98,17 @@ jobs:
           } else {
             Write-Output "libvpx and libyuv headers present; skipping install."
           }
+
+      - name: Fallback - install aom if headers missing
+        shell: powershell
+        run: |
+          $aomHeader = 'C:\vcpkg\installed\x64-windows-static\include\aom\aom.h'
+          if (-Not (Test-Path $aomHeader)) {
+            Write-Output "aom headers missing; installing aom:x64-windows-static via vcpkg (classic mode)..."
+            & C:\vcpkg\vcpkg.exe install aom --triplet x64-windows-static --classic
+          } else {
+            Write-Output "aom headers present; skipping install."
+          }
       - name: Build RustDesk
         run: python build.py --portable --skip-portable-pack
       - name: Show build outputs
