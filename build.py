@@ -943,18 +943,18 @@ def build_flutter_windows(version, features, skip_portable_pack):
     system2('pip3 install -r requirements.txt')
     system2(
         f'python3 ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}/rustdesk.exe')
-    os.chdir('../..')
-    if os.path.exists('./rustdesk_portable.exe'):
-        os.replace('./target/release/rustdesk-portable-packer.exe',
-                   './rustdesk_portable.exe')
-    else:
-        os.rename('./target/release/rustdesk-portable-packer.exe',
-                  './rustdesk_portable.exe')
-    print(
-        f'output location: {os.path.abspath(os.curdir)}/rustdesk_portable.exe')
-    os.rename('./rustdesk_portable.exe', f'./rustdesk-{version}-install.exe')
-    print(
-        f'output location: {os.path.abspath(os.curdir)}/rustdesk-{version}-install.exe')
+    portable_root = os.path.abspath(os.getcwd())
+    portable_packer = os.path.join(portable_root, 'target', 'release', 'rustdesk-portable-packer.exe')
+    portable_output = os.path.join(REPO_ROOT, 'rustdesk_portable.exe')
+    final_output = os.path.join(REPO_ROOT, f'rustdesk-{version}-install.exe')
+    if os.path.exists(portable_output):
+        os.remove(portable_output)
+    if not os.path.exists(portable_packer):
+        raise FileNotFoundError(f'Missing generated portable packer: {portable_packer}')
+    os.replace(portable_packer, portable_output)
+    print(f'output location: {portable_output}')
+    os.replace(portable_output, final_output)
+    print(f'output location: {final_output}')
 
 
 def main():
@@ -1020,8 +1020,15 @@ def main():
         os.chdir('libs/portable')
         system2('pip3 install -r requirements.txt')
         system2(
-            f'python3 ./generate.py -f ../../{res_dir} -o . -e ../../{res_dir}/rustdesk-{version}-win7-install.exe')
-        system2(f'mv ../../{res_dir}/rustdesk-{version}-win7-install.exe ../..')
+            f'python3 ./generate.py -f ../../{res_dir} -o . -e ../../{res_dir}/RustDesk.exe')
+        portable_root = os.path.abspath(os.getcwd())
+        portable_packer = os.path.join(portable_root, 'target', 'release', 'rustdesk-portable-packer.exe')
+        final_name = f'rustdesk-{version}-win7-install.exe'
+        final_path = os.path.join(REPO_ROOT, final_name)
+        if not os.path.exists(portable_packer):
+            raise FileNotFoundError(f'Missing generated portable packer: {portable_packer}')
+        os.replace(portable_packer, final_path)
+        print(f'output location: {final_path}')
     elif os.path.isfile('/usr/bin/pacman'):
         # pacman -S -needed base-devel
         system2("sed -i 's/pkgver=.*/pkgver=%s/g' res/PKGBUILD" % version)
