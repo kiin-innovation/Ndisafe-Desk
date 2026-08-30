@@ -55,6 +55,26 @@ def system2(cmd):
         sys.exit(-1)
 
 
+def ensure_vcpkg_env():
+    vcpkg_root = os.environ.get('VCPKG_ROOT') or os.environ.get('VCPKG_INSTALLED_ROOT')
+    if vcpkg_root:
+        if not os.environ.get('VCPKG_ROOT'):
+            os.environ['VCPKG_ROOT'] = vcpkg_root
+        if not os.environ.get('VCPKG_INSTALLED_ROOT'):
+            os.environ['VCPKG_INSTALLED_ROOT'] = os.path.join(vcpkg_root, 'installed')
+        return
+
+    candidates = [
+        os.path.join(REPO_ROOT, 'vcpkg'),
+        r'C:\vcpkg',
+    ]
+    for candidate in candidates:
+        if os.path.isdir(candidate):
+            os.environ['VCPKG_ROOT'] = candidate
+            os.environ['VCPKG_INSTALLED_ROOT'] = os.path.join(candidate, 'installed')
+            return
+
+
 def get_version():
     with open("Cargo.toml", encoding="utf-8") as fh:
         for line in fh:
@@ -959,6 +979,7 @@ def build_flutter_windows(version, features, skip_portable_pack):
 
 def main():
     global skip_cargo
+    ensure_vcpkg_env()
     parser = make_parser()
     args = parser.parse_args()
 
@@ -1022,11 +1043,23 @@ def main():
         system2(
             f'python3 ./generate.py -f ../../{res_dir} -o . -e ../../{res_dir}/RustDesk.exe')
         portable_root = os.path.abspath(os.getcwd())
-        portable_packer = os.path.join(portable_root, 'target', 'release', 'rustdesk-portable-packer.exe')
+        portable_candidates = [
+            os.path.join(portable_root, 'target', 'release', 'rustdesk-portable-packer.exe'),
+            os.path.join(REPO_ROOT, 'target', 'release', 'rustdesk-portable-packer.exe'),
+            os.path.join(portable_root, 'target', 'debug', 'rustdesk-portable-packer.exe'),
+            os.path.join(REPO_ROOT, 'target', 'debug', 'rustdesk-portable-packer.exe'),
+        ]
+        portable_packer = next((p for p in portable_candidates if os.path.exists(p)), None)
+        if portable_packer is None:
+            print('Portable packer was not found in expected locations; building it explicitly before packaging.')
+            subprocess.run(['cargo', 'build', '--locked', '--release'], cwd=portable_root, check=True)
+            portable_packer = next((p for p in portable_candidates if os.path.exists(p)), None)
         final_name = f'rustdesk-{version}-win7-install.exe'
         final_path = os.path.join(REPO_ROOT, final_name)
-        if not os.path.exists(portable_packer):
-            raise FileNotFoundError(f'Missing generated portable packer: {portable_packer}')
+        if portable_packer is None:
+            raise FileNotFoundError(
+                'Missing generated portable packer under expected locations: ' + '; '.join(portable_candidates)
+            )
         os.replace(portable_packer, final_path)
         print(f'output location: {final_path}')
     elif os.path.isfile('/usr/bin/pacman'):

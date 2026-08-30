@@ -5,6 +5,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      VCPKG_ROOT: C:\vcpkg
+      VCPKG_INSTALLED_ROOT: C:\vcpkg\installed
     steps:
       - uses: actions/checkout@v3
         with:
@@ -110,7 +113,7 @@ jobs:
             Write-Output "aom headers present; skipping install."
           }
       - name: Build RustDesk
-        run: python build.py --portable --skip-portable-pack
+        run: python build.py --portable
       - name: Show build outputs
         shell: powershell
         run: |

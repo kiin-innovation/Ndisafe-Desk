@@ -131,6 +131,8 @@ fn find_package(name: &str) -> Vec<PathBuf> {
         link_pkg_config(name)
     } else if let Ok(vcpkg_root) = std::env::var("VCPKG_ROOT") {
         vec![link_vcpkg(vcpkg_root.into(), name)]
+    } else if let Ok(vcpkg_installed_root) = std::env::var("VCPKG_INSTALLED_ROOT") {
+        vec![link_vcpkg(vcpkg_installed_root.into(), name)]
     } else {
         // Try using homebrew
         vec![link_homebrew_m1(name)]
@@ -241,8 +243,6 @@ fn main() {
     if target.unwrap().target_pointer_width() != "64" {
         // panic!("Only support 64bit system");
     }
-    env::remove_var("CARGO_CFG_TARGET_FEATURE");
-    env::set_var("CARGO_CFG_TARGET_FEATURE", "crt-static");
 
     find_package("libyuv");
     gen_vcpkg_package("libvpx", "vpx_ffi.h", "vpx_ffi.rs", "^[vV].*");
