@@ -1,131 +1,188 @@
-name: Build Windows
+name: NDISafe Desk – Windows Portable Build
+
 on:
   push:
+    branches: ["ndisafe-desk"]
   workflow_dispatch:
+
+env:
+  RUST_VERSION: "1.75"
+  FLUTTER_VERSION: "3.24.5"
+  LLVM_VERSION: "15.0.6"
+  VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  VERSION: "1.4.9"
+
 jobs:
-  build:
-    runs-on: windows-latest
-    env:
-      VCPKG_ROOT: C:\vcpkg
-      VCPKG_INSTALLED_ROOT: C:\vcpkg\installed
+  # ── Step 1: generate flutter-rust bridge files on Linux (fast, no MSVC needed) ──
+  generate-bridge:
+    uses: ./.github/workflows/bridge.yml
+
+  # ── Step 2: build the Windows portable zip ────────────────────────────────────
+  build-windows:
+    needs: generate-bridge
+    runs-on: windows-2022
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
         with:
-          submodules: 'recursive'
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Checkout source
+        uses: actions/checkout@v4
         with:
-          toolchain: stable
-          target: x86_64-pc-windows-msvc
-      - name: Cache Cargo registry and git
-        uses: actions/cache@v4
+          submodules: recursive
+
+      - name: Restore bridge files
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            C:\\Users\\runneradmin\\.cargo\\registry
-            C:\\Users\\runneradmin\\.cargo\\git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Cache vcpkg (installed, buildtrees, packages)
-        uses: actions/cache@v4
+          name: bridge-artifact
+          path: ./
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0
         with:
-          path: |
-            C:\\vcpkg\\installed
-            C:\\vcpkg\\buildtrees
-            C:\\vcpkg\\packages
-          key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/vcpkg.json') }}
-      - name: Install NASM
-        run: choco install nasm -y
-      - name: Install vcpkg
+          version: ${{ env.LLVM_VERSION }}
+
+      - name: Install Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          architecture: x64
+
+      - name: Apply Flutter 3.24.5 dropdown patch
+        shell: bash
+        run: |
+          cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff \
+            $(dirname $(dirname $(which flutter)))
+          cd $(dirname $(dirname $(which flutter)))
+          git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: x86_64-pc-windows-msvc
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          prefix-key: windows-2022
+
+      - name: Setup vcpkg with GitHub Actions binary cache
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2
+        with:
+          vcpkgDirectory: C:\vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Install vcpkg dependencies
+        env:
+          VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
+        shell: bash
+        run: |
+          if ! $VCPKG_ROOT/vcpkg install \
+              --triplet x64-windows-static \
+              --x-install-root="$VCPKG_ROOT/installed"; then
+            find "${VCPKG_ROOT}/" -name "*.log" | while read -r f; do
+              echo "$f:"; cat "$f"; echo
+            done
+            exit 1
+          fi
+
+      - name: Build virtual display dylib
+        shell: bash
+        run: |
+          cd libs/virtual_display/dylib
+          cargo build --locked --release
+
+      - name: Build librustdesk.dll (with flutter feature)
+        env:
+          VCPKG_ROOT: C:\vcpkg
+          VCPKG_INSTALLED_ROOT: C:\vcpkg\installed\x64-windows-static
+        shell: bash
+        run: |
+          cargo build --locked --features flutter --lib --release
+
+      - name: Flutter pub get
+        shell: bash
+        run: |
+          cd flutter
+          flutter pub get
+
+      - name: Build Flutter Windows release
+        env:
+          VCPKG_ROOT: C:\vcpkg
+          VCPKG_INSTALLED_ROOT: C:\vcpkg\installed\x64-windows-static
+        shell: bash
+        run: |
+          cd flutter
+          flutter build windows --release
+
+      - name: Assemble portable bundle
         shell: powershell
         run: |
-          if (-Not (Test-Path C:\vcpkg)) {
-            git clone https://github.com/microsoft/vcpkg C:\vcpkg
-            & C:\vcpkg\bootstrap-vcpkg.bat
-          }
-          Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=C:\\vcpkg"
-      - name: Install sccache
-        shell: powershell
-        run: |
-          Write-Output "Installing sccache..."
-          cargo install sccache --locked
-      - name: Configure sccache
-        shell: powershell
-        run: |
-          $sccachePath = "$env:USERPROFILE\\.cargo\\bin\\sccache.exe"
-          if (Test-Path $sccachePath) {
-            Add-Content -Path $env:GITHUB_ENV -Value "RUSTC_WRAPPER=$sccachePath"
+          $out = "ndisafe-desk-portable"
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+
+          $releaseDir = "flutter\build\windows\x64\runner\Release"
+
+          # Core Flutter build output
+          Copy-Item "$releaseDir\*" $out -Recurse -Force
+
+          # Rust support binaries
+          Copy-Item "target\release\librustdesk.dll"           $out -Force
+          Copy-Item "target\release\service.exe"               $out -Force
+          Copy-Item "target\release\naming.exe"                $out -Force
+          Copy-Item "target\release\dylib_virtual_display.dll" $out -Force
+
+          # opus.dll — dynamically linked by librustdesk on Windows
+          $opusDll = "C:\vcpkg\installed\x64-windows-static\bin\opus.dll"
+          if (Test-Path $opusDll) {
+            Copy-Item $opusDll $out -Force
+            Write-Host "Copied opus.dll"
           } else {
-            Write-Output "sccache not found at $sccachePath"
-          }
-      - name: Install vcpkg dependencies (manifest)
-        shell: powershell
-        run: |
-          Write-Output "Installing vcpkg packages from vcpkg.json (this may take a while)..."
-          # Build static triplet because the project expects x64-windows-static libs/headers
-          & C:\vcpkg\vcpkg.exe install --triplet x64-windows-static
-      - name: Verify vcpkg installation
-        shell: powershell
-        run: |
-          Write-Output "Listing installed vcpkg packages:"
-          & C:\vcpkg\vcpkg.exe list
-          Write-Output "Checking for opus headers in installed include path:"
-          $includePath = 'C:\vcpkg\installed\x64-windows-static\include'
-          if (Test-Path $includePath) {
-            if (Test-Path (Join-Path $includePath 'opus')) {
-              Get-ChildItem -Path (Join-Path $includePath 'opus') | Select-Object FullName
-            } else {
-              Write-Output "opus folder not found under $includePath"
-            }
-          } else {
-            Write-Output "$includePath does not exist"
-          }
-      - name: Fallback - install opus if headers missing
-        shell: powershell
-        run: |
-          $opusInclude = 'C:\vcpkg\installed\x64-windows-static\include\opus'
-          if (-Not (Test-Path $opusInclude)) {
-            Write-Output "Opus headers missing; installing opus:x64-windows-static via vcpkg (classic mode)..."
-            # Force classic mode to allow installing an individual package despite manifest mode
-            & C:\vcpkg\vcpkg.exe install opus:x64-windows-static --classic
-          } else {
-            Write-Output "Opus headers already present; skipping install."
+            Write-Warning "opus.dll not found at $opusDll — friends may need it"
           }
 
-      - name: Fallback - install libvpx/libyuv if headers missing
-        shell: powershell
-        run: |
-          $vpxHeader = 'C:\vcpkg\installed\x64-windows-static\include\vpx\vp8.h'
-          $libyuvHeader = 'C:\vcpkg\installed\x64-windows-static\include\libyuv.h'
-          if (-Not (Test-Path $vpxHeader) -or -Not (Test-Path $libyuvHeader)) {
-            Write-Output "libvpx or libyuv headers missing; installing via vcpkg (classic mode)..."
-            & C:\vcpkg\vcpkg.exe install libvpx libyuv --triplet x64-windows-static --classic
-          } else {
-            Write-Output "libvpx and libyuv headers present; skipping install."
-          }
+          Write-Host "Bundle contents:"
+          Get-ChildItem $out -File | Select-Object Name, @{N='KB';E={[math]::Round($_.Length/1KB)}}
 
-      - name: Fallback - install aom if headers missing
+      - name: Create README for friends
         shell: powershell
         run: |
-          $aomHeader = 'C:\vcpkg\installed\x64-windows-static\include\aom\aom.h'
-          if (-Not (Test-Path $aomHeader)) {
-            Write-Output "aom headers missing; installing aom:x64-windows-static via vcpkg (classic mode)..."
-            & C:\vcpkg\vcpkg.exe install aom --triplet x64-windows-static --classic
-          } else {
-            Write-Output "aom headers present; skipping install."
-          }
-      - name: Build RustDesk
-        run: python build.py --portable
-      - name: Show build outputs
+          $readme = @"
+          # NDISafe Desk – Portable Windows Build
+
+          ## How to run
+          1. Extract this zip to any folder (e.g. Desktop)
+          2. Double-click **rustdesk.exe**
+          3. Share your 9-digit ID with a friend to connect
+
+          ## Notes
+          - No installation required
+          - First launch may take a few seconds while the service starts
+          - If Windows Defender asks, click "More info" → "Run anyway"
+
+          Build: ${{ github.sha }}
+          "@
+          $readme | Out-File "ndisafe-desk-portable\README.txt" -Encoding UTF8
+
+      - name: Zip portable bundle
         shell: powershell
         run: |
-          if (Test-Path target\release) {
-            Get-ChildItem -Path target\release -Recurse | Select-Object FullName, Length
-          } else {
-            Write-Output 'No target\release directory found'
-          }
-      - name: Upload Artifact
+          Compress-Archive -Path "ndisafe-desk-portable\*" `
+            -DestinationPath "NDISafe-Desk-${{ env.VERSION }}-windows-portable.zip" `
+            -Force
+          Write-Host "Zip size: $([math]::Round((Get-Item 'NDISafe-Desk-${{ env.VERSION }}-windows-portable.zip').Length/1MB,1)) MB"
+
+      - name: Upload portable zip
         uses: actions/upload-artifact@v4
         with:
-          name: ndisafe-desk-windows
-          path: |
-            target/release/*.exe
-            target/release/**/*.exe
+          name: NDISafe-Desk-${{ env.VERSION }}-windows-portable
+          path: NDISafe-Desk-${{ env.VERSION }}-windows-portable.zip
+          retention-days: 30
