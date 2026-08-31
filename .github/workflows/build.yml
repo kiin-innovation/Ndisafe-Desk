@@ -103,7 +103,7 @@ jobs:
       - name: Build librustdesk.dll (with flutter feature)
         env:
           VCPKG_ROOT: C:\vcpkg
-          VCPKG_INSTALLED_ROOT: C:\vcpkg\installed\x64-windows-static
+          VCPKG_INSTALLED_ROOT: C:\vcpkg\installed
         shell: bash
         run: |
           cargo build --locked --features flutter --lib --release
@@ -117,7 +117,7 @@ jobs:
       - name: Build Flutter Windows release
         env:
           VCPKG_ROOT: C:\vcpkg
-          VCPKG_INSTALLED_ROOT: C:\vcpkg\installed\x64-windows-static
+          VCPKG_INSTALLED_ROOT: C:\vcpkg\installed
         shell: bash
         run: |
           cd flutter
