@@ -1,4 +1,4 @@
-name: NDISafe Desk – Windows Portable Build
+name: NDISafe Desk - Windows Portable Build
 
 on:
   push:
@@ -14,18 +14,16 @@ env:
   VERSION: "1.4.9"
 
 jobs:
-  # ── Step 1: generate flutter-rust bridge files on Linux (fast, no MSVC needed) ──
   generate-bridge:
     uses: ./.github/workflows/bridge.yml
 
-  # ── Step 2: build the Windows portable zip ────────────────────────────────────
   build-windows:
     needs: generate-bridge
     runs-on: windows-2022
 
     steps:
       - name: Export GitHub Actions cache environment variables
-        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
@@ -47,7 +45,7 @@ jobs:
         with:
           version: ${{ env.LLVM_VERSION }}
 
-      - name: Install Flutter ${{ env.FLUTTER_VERSION }}
+      - name: Install Flutter
         uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225
         with:
           channel: stable
@@ -62,7 +60,7 @@ jobs:
           cd $(dirname $(dirname $(which flutter)))
           git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
 
-      - name: Install Rust ${{ env.RUST_VERSION }}
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
           toolchain: ${{ env.RUST_VERSION }}
@@ -100,7 +98,7 @@ jobs:
           cd libs/virtual_display/dylib
           cargo build --locked --release
 
-      - name: Build librustdesk.dll (with flutter feature)
+      - name: Build librustdesk.dll
         env:
           VCPKG_ROOT: C:\vcpkg
           VCPKG_INSTALLED_ROOT: C:\vcpkg\installed
@@ -124,61 +122,53 @@ jobs:
           flutter build windows --release
 
       - name: Assemble portable bundle
-        shell: powershell
+        shell: pwsh
         run: |
           $out = "ndisafe-desk-portable"
           New-Item -ItemType Directory -Path $out -Force | Out-Null
-
           $releaseDir = "flutter\build\windows\x64\runner\Release"
-
-          # Core Flutter build output
           Copy-Item "$releaseDir\*" $out -Recurse -Force
-
-          # Rust support binaries
-          Copy-Item "target\release\librustdesk.dll"           $out -Force
-          Copy-Item "target\release\service.exe"               $out -Force
-          Copy-Item "target\release\naming.exe"                $out -Force
+          Copy-Item "target\release\librustdesk.dll" $out -Force
+          Copy-Item "target\release\service.exe" $out -Force
+          Copy-Item "target\release\naming.exe" $out -Force
           Copy-Item "target\release\dylib_virtual_display.dll" $out -Force
-
-          # opus.dll — dynamically linked by librustdesk on Windows
           $opusDll = "C:\vcpkg\installed\x64-windows-static\bin\opus.dll"
           if (Test-Path $opusDll) {
             Copy-Item $opusDll $out -Force
             Write-Host "Copied opus.dll"
           } else {
-            Write-Warning "opus.dll not found at $opusDll — friends may need it"
+            Write-Warning "opus.dll not found"
           }
-
           Write-Host "Bundle contents:"
-          Get-ChildItem $out -File | Select-Object Name, @{N='KB';E={[math]::Round($_.Length/1KB)}}
+          Get-ChildItem $out -File | ForEach-Object { Write-Host "$($_.Name) ($([math]::Round($_.Length/1KB)) KB)" }
 
-      - name: Create README for friends
-        shell: powershell
+      - name: Create README
+        shell: pwsh
         run: |
-          $readme = @"
-          # NDISafe Desk – Portable Windows Build
-
-          ## How to run
-          1. Extract this zip to any folder (e.g. Desktop)
-          2. Double-click **rustdesk.exe**
-          3. Share your 9-digit ID with a friend to connect
-
-          ## Notes
-          - No installation required
-          - First launch may take a few seconds while the service starts
-          - If Windows Defender asks, click "More info" → "Run anyway"
-
-          Build: ${{ github.sha }}
-          "@
-          $readme | Out-File "ndisafe-desk-portable\README.txt" -Encoding UTF8
+          $lines = @(
+            "NDISafe Desk - Portable Windows Build",
+            "",
+            "How to run:",
+            "1. Extract this zip to any folder",
+            "2. Double-click rustdesk.exe",
+            "3. Share your 9-digit ID with a friend to connect",
+            "",
+            "Notes:",
+            "- No installation required",
+            "- First launch may take a few seconds while the service starts",
+            "- If Windows Defender asks, click More info then Run anyway",
+            "",
+            "Build: ${{ github.sha }}"
+          )
+          $lines | Out-File "ndisafe-desk-portable\README.txt" -Encoding UTF8
 
       - name: Zip portable bundle
-        shell: powershell
+        shell: pwsh
         run: |
-          Compress-Archive -Path "ndisafe-desk-portable\*" `
-            -DestinationPath "NDISafe-Desk-${{ env.VERSION }}-windows-portable.zip" `
-            -Force
-          Write-Host "Zip size: $([math]::Round((Get-Item 'NDISafe-Desk-${{ env.VERSION }}-windows-portable.zip').Length/1MB,1)) MB"
+          $zip = "NDISafe-Desk-${{ env.VERSION }}-windows-portable.zip"
+          Compress-Archive -Path "ndisafe-desk-portable\*" -DestinationPath $zip -Force
+          $sizeMB = [math]::Round((Get-Item $zip).Length / 1MB, 1)
+          Write-Host "Zip size: ${sizeMB} MB"
 
       - name: Upload portable zip
         uses: actions/upload-artifact@v4
