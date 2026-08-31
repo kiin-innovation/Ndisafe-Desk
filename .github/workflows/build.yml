@@ -104,7 +104,7 @@ jobs:
           VCPKG_INSTALLED_ROOT: C:\vcpkg\installed
         shell: bash
         run: |
-          cargo build --locked --features flutter --lib --release
+          cargo build --locked --features flutter --lib --bins --release
 
       - name: Flutter pub get
         shell: bash
