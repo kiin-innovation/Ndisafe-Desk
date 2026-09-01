@@ -55,6 +55,11 @@ def system2(cmd):
         sys.exit(-1)
 
 
+def python_cmd(*args):
+    quoted = ' '.join(f'"{a}"' if ' ' in str(a) else str(a) for a in args)
+    return f'"{sys.executable}" {quoted}'
+
+
 def ensure_vcpkg_env():
     vcpkg_root = os.environ.get('VCPKG_ROOT') or os.environ.get('VCPKG_INSTALLED_ROOT')
     if vcpkg_root:
@@ -960,9 +965,9 @@ def build_flutter_windows(version, features, skip_portable_pack):
     if skip_portable_pack:
         return
     os.chdir('libs/portable')
-    system2('pip3 install -r requirements.txt')
+    system2(python_cmd('-m', 'pip', 'install', '-r', 'requirements.txt'))
     system2(
-        f'python3 ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}/rustdesk.exe')
+        python_cmd('./generate.py', '-f', f'../../{flutter_build_dir_2}', '-o', '.', '-e', f'../../{flutter_build_dir_2}/rustdesk.exe'))
     portable_root = os.path.abspath(os.getcwd())
     portable_packer = os.path.join(portable_root, 'target', 'release', 'rustdesk-portable-packer.exe')
     portable_output = os.path.join(REPO_ROOT, 'rustdesk_portable.exe')
@@ -1004,7 +1009,7 @@ def main():
     features = ','.join(get_features(args))
     flutter = args.flutter
     if not flutter:
-        system2('python3 res/inline-sciter.py')
+        system2(python_cmd('res/inline-sciter.py'))
     print(args.skip_cargo)
     if args.skip_cargo:
         skip_cargo = True
@@ -1026,7 +1031,12 @@ def main():
             return
         system2('cargo build --locked --release --features ' + features)
         # system2('upx.exe target/release/rustdesk.exe')
-        system2('mv target/release/rustdesk.exe target/release/RustDesk.exe')
+        # Use Python move for cross-platform support (Windows doesn't have mv)
+        try:
+            import shutil
+            shutil.move('target/release/rustdesk.exe', 'target/release/RustDesk.exe')
+        except Exception as e:
+            system2('mv target/release/rustdesk.exe target/release/RustDesk.exe')
         pa = os.environ.get('P')
         if pa:
             # https://certera.com/kb/tutorial-guide-for-safenet-authentication-client-for-code-signing/
@@ -1036,12 +1046,17 @@ def main():
         else:
             print('Not signed')
         os.makedirs(res_dir, exist_ok=True)
-        system2(
-            f'cp -rf target/release/RustDesk.exe {res_dir}')
+        # Copy the renamed exe into resources directory using Python to be cross-platform
+        try:
+            import shutil
+            shutil.copy2('target/release/RustDesk.exe', os.path.join(res_dir, 'RustDesk.exe'))
+        except Exception as e:
+            system2(
+                f'cp -rf target/release/RustDesk.exe {res_dir}')
         os.chdir('libs/portable')
-        system2('pip3 install -r requirements.txt')
+        system2(python_cmd('-m', 'pip', 'install', '-r', 'requirements.txt'))
         system2(
-            f'python3 ./generate.py -f ../../{res_dir} -o . -e ../../{res_dir}/RustDesk.exe')
+            python_cmd('./generate.py', '-f', f'../../{res_dir}', '-o', '.', '-e', f'../../{res_dir}/RustDesk.exe'))
         portable_root = os.path.abspath(os.getcwd())
         portable_candidates = [
             os.path.join(portable_root, 'target', 'release', 'rustdesk-portable-packer.exe'),
