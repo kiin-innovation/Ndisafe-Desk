@@ -114,8 +114,8 @@ const CHARS: &[char] = &[
     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
-pub const RENDEZVOUS_SERVERS: &[&str] = &["relay.ndisafe.com"]; // TODO: replace with your hbbs server
-pub const RS_PUB_KEY: &str = ""; // TODO: paste your hbbs public key here
+pub const RENDEZVOUS_SERVERS: &[&str] = &["192.168.1.223"]; // dev: local Docker hbbs — change to your VPS when deploying
+pub const RS_PUB_KEY: &str = "Pjoq4iWCH2xey9qe+BOVglIVQS+hDVa5TIfKOlme02c="; // dev: local Docker hbbs key
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
 pub const RELAY_PORT: i32 = 21117;
