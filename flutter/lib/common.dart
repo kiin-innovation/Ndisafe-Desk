@@ -249,17 +249,17 @@ class MyTheme {
   MyTheme._();
 
   static const Color grayBg = Color(0xFFEFEFF2);
-  static const Color accent = Color(0xFF0071FF);
-  static const Color accent50 = Color(0x770071FF);
-  static const Color accent80 = Color(0xAA0071FF);
-  static const Color canvasColor = Color(0xFF212121);
+  static const Color accent = Color(0xFF4EB79B);   // NDISafe teal
+  static const Color accent50 = Color(0x774EB79B);
+  static const Color accent80 = Color(0xAA4EB79B);
+  static const Color canvasColor = Color(0xFF1A2E42); // NDISafe dark navy
   static const Color border = Color(0xFFCCCCCC);
-  static const Color idColor = Color(0xFF00B6F0);
+  static const Color idColor = Color(0xFF4EB79B);  // NDISafe teal
   static const Color darkGray = Color.fromARGB(255, 148, 148, 148);
-  static const Color cmIdColor = Color(0xFF21790B);
+  static const Color cmIdColor = Color(0xFF3D5D89); // NDISafe blue
   static const Color dark = Colors.black87;
-  static const Color button = Color(0xFF2C8CFF);
-  static const Color hoverBorder = Color(0xFF999999);
+  static const Color button = Color(0xFF3D5D89);   // NDISafe blue
+  static const Color hoverBorder = Color(0xFF4EB79B); // NDISafe teal
 
   // ListTile
   static const ListTileThemeData listTileTheme = ListTileThemeData(
@@ -3767,9 +3767,9 @@ Widget loadPowered(BuildContext context) {
   ).marginOnly(top: 6);
 }
 
-const _kDefaultLogoAsset = 'assets/logo.png';
-const _kLightLogoAsset = 'assets/logo_light.png';
-const _kDarkLogoAsset = 'assets/logo_dark.png';
+const _kDefaultLogoAsset = 'assets/logo.svg';
+const _kLightLogoAsset = 'assets/logo.svg';
+const _kDarkLogoAsset = 'assets/logo.svg';
 
 List<String> _logoAssetCandidatesForBrightness(Brightness brightness) {
   return brightness == Brightness.dark
@@ -3811,21 +3811,12 @@ class _LogoState extends State<_Logo> {
     return FutureBuilder<String?>(
       future: _logoFutureFor(Theme.of(context).brightness),
       builder: (BuildContext context, AsyncSnapshot<String?> snapshot) {
-        final asset = snapshot.data;
-        if (asset != null) {
-          final image = Image.asset(
-            asset,
-            fit: BoxFit.contain,
-            errorBuilder: (ctx, error, stackTrace) {
-              return Container();
-            },
-          );
-          return Container(
-            constraints: BoxConstraints(maxWidth: 300, maxHeight: 60),
-            child: image,
-          ).marginOnly(left: 12, right: 12, top: 12);
+        final asset = snapshot.data ?? _kDefaultLogoAsset;
+        if (asset.endsWith('.svg')) {
+          return SvgPicture.asset(asset, width: 200, height: 60, fit: BoxFit.contain);
         }
-        return const Offstage();
+        return Image.asset(asset, width: 200, height: 60, fit: BoxFit.contain,
+          errorBuilder: (ctx, err, st) => SvgPicture.asset('assets/logo.svg', width: 200, height: 60));
       },
     );
   }
