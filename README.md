@@ -1,181 +1,372 @@
 <p align="center">
-  <img src="res/logo-header.svg" alt="RustDesk - Your remote desktop"><br>
-  <a href="#raw-steps-to-build">Build</a> •
-  <a href="#how-to-build-with-docker">Docker</a> •
-  <a href="#file-structure">Structure</a> •
-  <a href="#snapshot">Snapshot</a><br>
-  [<a href="docs/README-UA.md">Українська</a>] | [<a href="docs/README-CS.md">česky</a>] | [<a href="docs/README-ZH.md">中文</a>] | [<a href="docs/README-HU.md">Magyar</a>] | [<a href="docs/README-ES.md">Español</a>] | [<a href="docs/README-FA.md">فارسی</a>] | [<a href="docs/README-FR.md">Français</a>] | [<a href="docs/README-DE.md">Deutsch</a>] | [<a href="docs/README-PL.md">Polski</a>] | [<a href="docs/README-ID.md">Indonesian</a>] | [<a href="docs/README-FI.md">Suomi</a>] | [<a href="docs/README-ML.md">മലയാളം</a>] | [<a href="docs/README-JP.md">日本語</a>] | [<a href="docs/README-NL.md">Nederlands</a>] | [<a href="docs/README-IT.md">Italiano</a>] | [<a href="docs/README-RU.md">Русский</a>] | [<a href="docs/README-PTBR.md">Português (Brasil)</a>] | [<a href="docs/README-EO.md">Esperanto</a>] | [<a href="docs/README-KR.md">한국어</a>] | [<a href="docs/README-AR.md">العربي</a>] | [<a href="docs/README-VN.md">Tiếng Việt</a>] | [<a href="docs/README-DA.md">Dansk</a>] | [<a href="docs/README-GR.md">Ελληνικά</a>] | [<a href="docs/README-TR.md">Türkçe</a>] | [<a href="docs/README-NO.md">Norsk</a>] | [<a href="docs/README-RO.md">Română</a>]<br>
-  <b>We need your help to translate this README, <a href="https://github.com/rustdesk/rustdesk/tree/master/src/lang">RustDesk UI</a> and <a href="https://github.com/rustdesk/doc.rustdesk.com">RustDesk Doc</a> to your native language</b>
+  <img src="res/ndisafe_logo.svg" width="120" alt="NDISafe Desk Logo" />
 </p>
 
-> [!Caution]
-> **Misuse Disclaimer:** <br>
-> The developers of RustDesk do not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized access, control or invasion of privacy, is strictly against our guidelines. The authors are not responsible for any misuse of the application.
+<h1 align="center">NDISafe Desk</h1>
+<p align="center">Secure remote desktop for teams — built on RustDesk, owned by you.</p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.4.9-teal" />
+  <img src="https://img.shields.io/badge/platform-Windows-blue" />
+  <img src="https://img.shields.io/badge/rust-1.75-orange" />
+  <img src="https://img.shields.io/badge/flutter-3.24.5-blue" />
+  <img src="https://img.shields.io/github/actions/workflow/status/kiin-innovation/Ndisafe-Desk/build.yml?branch=ndisafe-desk&label=CI" />
+</p>
 
-Chat with us: [Discord](https://discord.gg/nDceKgxnkV) | [Twitter](https://twitter.com/rustdesk) | [Reddit](https://www.reddit.com/r/rustdesk) | [YouTube](https://www.youtube.com/@rustdesk)
+---
 
-[![RustDesk Server Pro](https://img.shields.io/badge/RustDesk%20Server%20Pro-Advanced%20Features-blue)](https://rustdesk.com/pricing.html)
+## What is NDISafe Desk?
 
-Yet another remote desktop solution, written in Rust. Works out of the box with no configuration required. You have full control of your data, with no concerns about security. You can use our rendezvous/relay server, [set up your own](https://rustdesk.com/server), or [write your own rendezvous/relay server](https://github.com/rustdesk/rustdesk-server-demo).
+NDISafe Desk is a TeamViewer-style remote desktop application built on top of [RustDesk](https://github.com/rustdesk/rustdesk). It is fully self-hosted — it connects only to **your own relay servers**, not RustDesk's public infrastructure.
 
-![image](https://user-images.githubusercontent.com/71636191/171661982-430285f0-2e12-4b1d-9957-4a58e375304d.png)
+**Key differences from upstream RustDesk:**
+- Branded with the NDISafe identity (logo, colors, app name)
+- Pre-configured to connect to your own `hbbs`/`hbbr` server
+- Portable Windows build distributed via GitHub Actions CI
+- No dependency on any third-party relay service
 
-RustDesk welcomes contribution from everyone. See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for help getting started.
+---
 
-[**FAQ**](https://github.com/rustdesk/rustdesk/wiki/FAQ)
+## Architecture
 
-[**BINARY DOWNLOAD**](https://github.com/rustdesk/rustdesk/releases)
-
-[**NIGHTLY BUILD**](https://github.com/rustdesk/rustdesk/releases/tag/nightly)
-
-[<img src="https://f-droid.org/badge/get-it-on.png"
-    alt="Get it on F-Droid"
-    height="80">](https://f-droid.org/en/packages/com.carriez.flutter_hbb)
-[<img src="https://flathub.org/api/badge?svg&locale=en"
-    alt="Get it on Flathub"
-    height="80">](https://flathub.org/apps/com.rustdesk.RustDesk)
-
-## Dependencies
-
-Desktop versions use Flutter or Sciter (deprecated) for GUI. This tutorial is for Sciter only, since it is easier and more friendly to start. Check out our [CI](https://github.com/rustdesk/rustdesk/blob/master/.github/workflows/flutter-build.yml) for building the Flutter version.
-
-Please download Sciter dynamic library yourself.
-
-[Windows](https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.win/x64/sciter.dll) |
-[Linux](https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.lnx/x64/libsciter-gtk.so) |
-[macOS](https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.osx/libsciter.dylib)
-
-## Raw Steps to build
-
-- Prepare your Rust development env and C++ build env
-
-- Install [vcpkg](https://github.com/microsoft/vcpkg), and set `VCPKG_ROOT` env variable correctly
-
-  - Windows: vcpkg install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
-  - Linux/macOS: vcpkg install libvpx libyuv opus aom
-
-- run `cargo run`
-
-## [Build](https://rustdesk.com/docs/en/dev/build/)
-
-## How to Build on Linux
-
-### Ubuntu 18 (Debian 10)
-
-```sh
-sudo apt install -y zip g++ gcc git curl wget nasm yasm libgtk-3-dev clang libxcb-randr0-dev libxdo-dev \
-        libxfixes-dev libxcb-shape0-dev libxcb-xfixes0-dev libasound2-dev libpulse-dev cmake make \
-        libclang-dev ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+```
+┌─────────────────────────────────────────────────┐
+│                 NDISafe Desk Client              │
+│  Flutter UI  ←→  librustdesk.dll (Rust core)    │
+└───────────────────────┬─────────────────────────┘
+                        │ TCP/UDP 21116
+                        ▼
+┌─────────────────────────────────────────────────┐
+│              Your hbbs (ID/Rendezvous)           │
+│                  port 21116                      │
+└───────────────────────┬─────────────────────────┘
+                        │ TCP 21117
+                        ▼
+┌─────────────────────────────────────────────────┐
+│              Your hbbr (Relay)                   │
+│                  port 21117                      │
+└─────────────────────────────────────────────────┘
 ```
 
-### openSUSE Tumbleweed
+| Component | Technology | Purpose |
+|---|---|---|
+| Desktop client | Rust + Flutter | UI and remote desktop protocol |
+| `librustdesk.dll` | Rust (cdylib) | Core engine — screen capture, input, audio |
+| `hbbs` | RustDesk server | ID registration and NAT traversal |
+| `hbbr` | RustDesk server | Relay when direct connection fails |
 
-```sh
-sudo zypper install gcc-c++ git curl wget nasm yasm gcc gtk3-devel clang libxcb-devel libXfixes-devel cmake alsa-lib-devel gstreamer-devel gstreamer-plugins-base-devel xdotool-devel
+---
+
+## For Team Members — Running the App
+
+### Download the latest build
+
+1. Go to [GitHub Actions](https://github.com/kiin-innovation/Ndisafe-Desk/actions)
+2. Click the latest successful **NDISafe Desk – Windows Portable Build** run
+3. Scroll to **Artifacts** at the bottom
+4. Download **NDISafe-Desk-1.4.9-windows-portable**
+5. Extract the zip to any folder (e.g. `C:\NDISafe Desk\`)
+6. Double-click **`rustdesk.exe`**
+
+> **Windows Defender note:** On first run Windows may show a SmartScreen warning. Click **More info → Run anyway**. This happens because the exe is not yet code-signed.
+
+### Sharing your screen
+
+1. Open NDISafe Desk — your **9-digit ID** is shown on the main screen
+2. Share that ID with a teammate
+3. They enter it in the **Connect** field and click **Connect**
+4. Accept the incoming connection request
+
+### Connecting to someone else
+
+1. Ask them for their 9-digit ID
+2. Enter it in the **Connect** field
+3. Click **Connect**
+
+---
+
+## For Developers — Local Setup
+
+### Prerequisites
+
+| Tool | Version | Download |
+|---|---|---|
+| Rust | 1.75 | https://rustup.rs |
+| Flutter | 3.24.5 | https://docs.flutter.dev/get-started/install/windows |
+| Visual Studio Build Tools | 2022+ | https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022 |
+| vcpkg | pinned commit | See below |
+| NASM | any | `choco install nasm` |
+| Docker Desktop | any | https://www.docker.com/products/docker-desktop |
+| Python | 3.x | https://python.org |
+
+### 1. Clone the repo
+
+```powershell
+git clone https://github.com/kiin-innovation/Ndisafe-Desk --branch ndisafe-desk
+cd Ndisafe-Desk
 ```
 
-### Fedora 28 (CentOS 8)
+> Note: `libs/hbb_common` is tracked as a regular directory (not a submodule) so no `--recursive` flag is needed.
 
-```sh
-sudo yum -y install gcc-c++ git curl wget nasm yasm gcc gtk3-devel clang libxcb-devel libxdo-devel libXfixes-devel pulseaudio-libs-devel cmake alsa-lib-devel gstreamer1-devel gstreamer1-plugins-base-devel
+### 2. Set up vcpkg
+
+```powershell
+git clone https://github.com/microsoft/vcpkg C:\vcpkg
+C:\vcpkg\bootstrap-vcpkg.bat
+
+$env:VCPKG_ROOT = "C:\vcpkg"
+$env:VCPKG_INSTALLED_ROOT = "C:\vcpkg\installed"
+
+C:\vcpkg\vcpkg install --triplet x64-windows-static
 ```
 
-### Arch (Manjaro)
+### 3. Start the local relay server (Docker)
 
-```sh
-sudo pacman -Syu --needed unzip git cmake gcc curl wget yasm nasm zip make pkg-config clang gtk3 xdotool libxcb libxfixes alsa-lib pipewire
+```powershell
+# Create data directory (stores generated key pair)
+New-Item -ItemType Directory -Path C:\ndisafe-server -Force
+
+# Start rendezvous/ID server
+docker run --name hbbs `
+  -p 21115:21115 -p 21116:21116 -p 21116:21116/udp -p 21118:21118 `
+  -v "C:\ndisafe-server:/root" -d rustdesk/rustdesk-server hbbs
+
+# Start relay server
+docker run --name hbbr `
+  -p 21117:21117 -p 21119:21119 `
+  -v "C:\ndisafe-server:/root" -d rustdesk/rustdesk-server hbbr
 ```
 
-### Install vcpkg
+Get your server's public key (needed for `config.rs`):
 
-```sh
-git clone https://github.com/microsoft/vcpkg
-cd vcpkg
-git checkout 2023.04.15
-cd ..
-vcpkg/bootstrap-vcpkg.sh
-export VCPKG_ROOT=$HOME/vcpkg
-vcpkg/vcpkg install libvpx libyuv opus aom
+```powershell
+Get-Content C:\ndisafe-server\id_ed25519.pub
 ```
 
-### Fix libvpx (For Fedora)
+Make containers restart automatically after reboot:
 
-```sh
-cd vcpkg/buildtrees/libvpx/src
-cd *
-./configure
-sed -i 's/CFLAGS+=-I/CFLAGS+=-fPIC -I/g' Makefile
-sed -i 's/CXXFLAGS+=-I/CXXFLAGS+=-fPIC -I/g' Makefile
-make
-cp libvpx.a $HOME/vcpkg/installed/x64-linux/lib/
-cd
+```powershell
+docker update --restart=always hbbs hbbr
 ```
 
-### Build
+### 4. Configure the server address
 
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source $HOME/.cargo/env
-git clone --recurse-submodules https://github.com/rustdesk/rustdesk
-cd rustdesk
-mkdir -p target/debug
-wget https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.lnx/x64/libsciter-gtk.so
-mv libsciter-gtk.so target/debug
-VCPKG_ROOT=$HOME/vcpkg cargo run
+Edit `libs/hbb_common/src/config.rs`:
+
+```rust
+// Line ~117 — set to your machine's LAN IP or VPS IP
+pub const RENDEZVOUS_SERVERS: &[&str] = &["192.168.1.xxx"];
+
+// Line ~118 — paste the key from id_ed25519.pub
+pub const RS_PUB_KEY: &str = "your-base64-key-here=";
 ```
 
-## How to build with Docker
+> **For production:** replace `192.168.1.xxx` with your VPS IP or domain.  
+> **For local dev:** use your machine's Wi-Fi IP (`ipconfig` → look for 192.168.x.x).
 
-Begin by cloning the repository and building the Docker container:
+### 5. Build and run locally
 
-```sh
-git clone https://github.com/rustdesk/rustdesk
-cd rustdesk
-git submodule update --init --recursive
-docker build -t "rustdesk-builder" .
+```powershell
+$env:VCPKG_ROOT = "C:\vcpkg"
+$env:VCPKG_INSTALLED_ROOT = "C:\vcpkg\installed"
+$d = "flutter\build\windows\x64\runner\Release"
+$t = "target\release"
+
+# Build the Rust core (needed when src/ or libs/hbb_common/ changes)
+cargo build --features flutter --lib --bins --release
+
+# Build the Flutter UI (needed when flutter/lib/ changes)
+cd flutter; flutter build windows --release; cd ..
+
+# Copy all required files to the output directory
+Copy-Item "$t\librustdesk.dll","$t\service.exe","$t\naming.exe","$t\dylib_virtual_display.dll" $d -Force
+Copy-Item "C:\vcpkg\installed\x64-windows-static\bin\opus.dll" $d -Force
+
+# Launch
+Start-Process "$d\rustdesk.exe" -WorkingDirectory $d
 ```
 
-Then, each time you need to build the application, run the following command:
+**When do I need to rebuild what?**
 
-```sh
-docker run --rm -it -v $PWD:/home/user/rustdesk -v rustdesk-git-cache:/home/user/.cargo/git -v rustdesk-registry-cache:/home/user/.cargo/registry -e PUID="$(id -u)" -e PGID="$(id -g)" rustdesk-builder
+| Changed files | Rebuild needed |
+|---|---|
+| `src/**/*.rs` or `libs/**/*.rs` | Rust only: `cargo build --features flutter --lib --bins --release` |
+| `flutter/lib/**/*.dart` | Flutter only: `flutter build windows --release` |
+| Both | Rust first, then Flutter |
+
+---
+
+## CI/CD — GitHub Actions
+
+The workflow file is at `.github/workflows/build.yml`.
+
+It runs automatically on every push to `ndisafe-desk` and can also be triggered manually via **Actions → Run workflow**.
+
+**What the pipeline does:**
+
+1. **`generate-bridge`** (Ubuntu, ~5 min) — generates the Flutter/Rust FFI bridge files
+2. **`build-windows`** (Windows 2022, ~30 min):
+   - Installs LLVM, Flutter 3.24.5, Rust 1.75, vcpkg
+   - Builds `librustdesk.dll` with `--features flutter`
+   - Builds `service.exe` and `naming.exe`
+   - Runs `flutter build windows --release`
+   - Assembles everything into a portable zip with `opus.dll` and support binaries
+   - Uploads artifact: **`NDISafe-Desk-1.4.9-windows-portable`**
+
+**Trigger a build manually:**
+
+```powershell
+# Empty commit approach (no GitHub CLI login needed)
+git commit --allow-empty -m "ci: trigger build"
+git push origin ndisafe-desk
 ```
 
-Note that the first build may take longer before dependencies are cached, subsequent builds will be faster. Additionally, if you need to specify different arguments to the build command, you may do so at the end of the command in the `<OPTIONAL-ARGS>` position. For instance, if you wanted to build an optimized release version, you would run the command above followed by `--release`. The resulting executable will be available in the target folder on your system, and can be run with:
+Or via GitHub UI: Actions tab → **NDISafe Desk – Windows Portable Build** → **Run workflow**.
 
-```sh
-target/debug/rustdesk
+---
+
+## Branding
+
+| Asset | Location | Notes |
+|---|---|---|
+| Logo SVG | `res/ndisafe_logo.svg` | Source of truth for all icon/logo derivatives |
+| App icon (exe) | `flutter/windows/runner/resources/app_icon.ico` | 16/32/48/64/128/256px, embedded in `.exe` |
+| Legacy icon | `res/icon.ico` | Used by Sciter build path |
+| Flutter logo asset | `flutter/assets/logo.svg` | Shown on the main screen |
+| App name | `libs/hbb_common/src/config.rs` → `APP_NAME` | `"NDISafe Desk"` |
+
+**Color palette** (from logo SVG):
+
+| Token | Hex | Usage |
+|---|---|---|
+| NDISafe Teal | `#4EB79B` | Primary accent, buttons hover, ID color |
+| NDISafe Blue | `#3D5D89` | Buttons, secondary elements |
+| NDISafe Navy | `#2A496E` | Deep backgrounds, canvas |
+| NDISafe Dark Navy | `#1A2E42` | Dark theme canvas |
+
+To regenerate icons after updating the logo SVG:
+
+```powershell
+# Requires: node (sharp), python (Pillow)
+node C:\tmp_build2\render.js  # renders PNGs at each size
+
+python -c "
+# ... (see scripts/gen_icon.py for full script)
+"
 ```
 
-Or, if you're running a release executable:
+---
 
-```sh
-target/release/rustdesk
+## Moving to Production
+
+When you have a VPS ready (DigitalOcean, Hetzner, Vultr — any $5/month VPS works):
+
+### 1. Deploy server
+
+```bash
+# On your VPS
+docker run --name hbbs -p 21115-21116:21115-21116 -p 21116:21116/udp -p 21118:21118 \
+  -v /opt/ndisafe-server:/root -d --restart=always rustdesk/rustdesk-server hbbs
+
+docker run --name hbbr -p 21117:21117 -p 21119:21119 \
+  -v /opt/ndisafe-server:/root -d --restart=always rustdesk/rustdesk-server hbbr
+
+cat /opt/ndisafe-server/id_ed25519.pub
 ```
 
-Please ensure that you run these commands from the root of the RustDesk repository, or the application may not find the required resources. Also note that other cargo subcommands such as `install` or `run` are not currently supported via this method as they would install or run the program inside the container instead of the host.
+### 2. Update client config
 
-## File Structure
+In `libs/hbb_common/src/config.rs`:
 
-- **[libs/hbb_common](https://github.com/rustdesk/rustdesk/tree/master/libs/hbb_common)**: video codec, config, tcp/udp wrapper, protobuf, fs functions for file transfer, and some other utility functions
-- **[libs/scrap](https://github.com/rustdesk/rustdesk/tree/master/libs/scrap)**: screen capture
-- **[libs/enigo](https://github.com/rustdesk/rustdesk/tree/master/libs/enigo)**: platform specific keyboard/mouse control
-- **[libs/clipboard](https://github.com/rustdesk/rustdesk/tree/master/libs/clipboard)**: file copy and paste implementation for Windows, Linux, macOS.
-- **[src/ui](https://github.com/rustdesk/rustdesk/tree/master/src/ui)**: obsolete Sciter UI (deprecated)
-- **[src/server](https://github.com/rustdesk/rustdesk/tree/master/src/server)**: audio/clipboard/input/video services, and network connections
-- **[src/client.rs](https://github.com/rustdesk/rustdesk/tree/master/src/client.rs)**: start a peer connection
-- **[src/rendezvous_mediator.rs](https://github.com/rustdesk/rustdesk/tree/master/src/rendezvous_mediator.rs)**: Communicate with [rustdesk-server](https://github.com/rustdesk/rustdesk-server), wait for remote direct (TCP hole punching) or relayed connection
-- **[src/platform](https://github.com/rustdesk/rustdesk/tree/master/src/platform)**: platform specific code
-- **[flutter](https://github.com/rustdesk/rustdesk/tree/master/flutter)**: Flutter code for desktop and mobile
+```rust
+pub const RENDEZVOUS_SERVERS: &[&str] = &["your.vps.domain.or.ip"];
+pub const RS_PUB_KEY: &str = "your-production-public-key=";
+```
 
-## Screenshots
+### 3. Open firewall ports
 
-![Connection Manager](https://github.com/rustdesk/rustdesk/assets/28412477/db82d4e7-c4bc-4823-8e6f-6af7eadf7651)
+| Port | Protocol | Purpose |
+|---|---|---|
+| 21115 | TCP | NAT test |
+| 21116 | TCP + UDP | ID registration, heartbeat |
+| 21117 | TCP | Relay |
+| 21118 | TCP | WebSocket rendezvous |
+| 21119 | TCP | WebSocket relay |
 
-![Connected to a Windows PC](https://github.com/rustdesk/rustdesk/assets/28412477/9baa91e9-3362-4d06-aa1a-7518edcbd7ea)
+### 4. Push and rebuild
 
-![File Transfer](https://github.com/rustdesk/rustdesk/assets/28412477/39511ad3-aa9a-4f8c-8947-1cce286a46ad)
+```powershell
+git add libs/hbb_common/src/config.rs
+git commit -m "deploy: switch to production VPS server"
+git push origin ndisafe-desk
+```
 
-![TCP Tunneling](https://github.com/rustdesk/rustdesk/assets/28412477/78e8708f-e87e-4570-8373-1360033ea6c5)
+CI builds automatically. Download the new artifact and distribute to your team.
 
+---
+
+## Repository Structure
+
+```
+Ndisafe-Desk/
+├── src/                    # Rust application source
+│   ├── core_main.rs        # App startup, IPC, portable service
+│   ├── flutter.rs          # Flutter FFI exports (rustdesk_core_main_args)
+│   ├── platform/           # Windows/macOS/Linux platform code
+│   └── server/             # Audio, clipboard, input, video services
+├── libs/
+│   ├── hbb_common/         # Config, proto, shared utils (OWNED — not a submodule)
+│   │   └── src/config.rs   # ← SERVER ADDRESS and PUBLIC KEY live here
+│   ├── scrap/              # Screen capture
+│   ├── enigo/              # Input simulation
+│   └── virtual_display/    # Virtual display driver (Windows)
+├── flutter/
+│   ├── lib/
+│   │   ├── common.dart     # ← MyTheme colors live here
+│   │   ├── desktop/        # Desktop UI pages and widgets
+│   │   └── mobile/         # Mobile UI
+│   ├── assets/             # Icons, SVGs, fonts
+│   └── windows/runner/     # Windows runner (CMake, .rc file, icon)
+├── res/
+│   ├── ndisafe_logo.svg    # ← Master logo
+│   └── icon.ico            # Compiled icon (auto-generated)
+└── .github/workflows/
+    ├── build.yml           # ← NDISafe CI (Flutter portable zip)
+    └── bridge.yml          # Flutter/Rust FFI bridge generation
+```
+
+---
+
+## Troubleshooting
+
+**App opens to a white/blank screen**
+- Another RustDesk instance from a different path is running. Kill all `rustdesk` processes and relaunch from your build directory.
+
+**"Connection failed" or can't connect to peers**
+- Check that `hbbs` and `hbbr` Docker containers are running: `docker ps`
+- Verify the IP in `config.rs` matches your actual machine IP: `ipconfig` → Wi-Fi adapter
+- Ensure Windows Firewall allows ports 21115–21117
+
+**Flutter build fails with "Visual Studio 16 2019 not found"**
+- You have VS Build Tools 2026 (VS18). The Flutter tool needs a patch:
+  - In `C:\flutter\packages\flutter_tools\lib\src\windows\visual_studio.dart`, add `18 => 'Visual Studio 18 2026',` to the `cmakeGenerator` switch
+  - Delete `C:\flutter\bin\cache\flutter_tools.snapshot` and rerun
+
+**`scrap` build fails with "vpx/vp8.h not found"**
+- `VCPKG_INSTALLED_ROOT` must point to `C:\vcpkg\installed`, **not** `C:\vcpkg\installed\x64-windows-static`. The build scripts append the triplet name themselves.
+
+**opus.dll not found at runtime**
+- Copy `C:\vcpkg\installed\x64-windows-static\bin\opus.dll` into the same directory as `rustdesk.exe`
+- Or add that directory to your user PATH
+
+---
+
+## License
+
+NDISafe Desk is based on [RustDesk](https://github.com/rustdesk/rustdesk) which is licensed under [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.en.html).
+
+All NDISafe-specific modifications are the property of Kiin Innovation.
+
+---
+
+<p align="center">Built by <strong>Kiin Innovation</strong></p>
