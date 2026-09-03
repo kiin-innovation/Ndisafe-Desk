@@ -1,11 +1,11 @@
 [package]
-name = "rustdesk"
+name = "ndisafe-desk"
 version = "1.4.9"
 authors = ["rustdesk <info@rustdesk.com>"]
 edition = "2021"
 build= "build.rs"
 description = "NDISafe Desk Remote Desktop"
-default-run = "rustdesk"
+default-run = "ndisafe-desk"
 rust-version = "1.75"
 
 [lib]
@@ -220,7 +220,7 @@ libxdo-sys = { path = "libs/libxdo-sys-stub" }
 LegalCopyright = "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved."
 ProductName = "NDISafe Desk"
 FileDescription = "NDISafe Desk Remote Desktop"
-OriginalFilename = "rustdesk.exe"
+OriginalFilename = "Ndisafe-desk.exe"
 
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"

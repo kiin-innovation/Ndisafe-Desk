@@ -23,7 +23,7 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 windows = platform.platform().startswith('Windows')
 osx = platform.platform().startswith(
     'Darwin') or platform.platform().startswith("macOS")
-hbb_name = 'rustdesk' + ('.exe' if windows else '')
+    hbb_name = 'ndisafe-desk' + ('.exe' if windows else '')
 exe_path = 'target/release/' + hbb_name
 if windows:
     win_arch = 'arm64' if platform.machine().lower() in ('arm64', 'aarch64') else 'x64'
@@ -382,7 +382,7 @@ def generate_control_file(version):
     control_file_path = "../res/DEBIAN/control"
     system2('/bin/rm -rf %s' % control_file_path)
 
-    content = """Package: rustdesk
+    content = """Package: ndisafe-desk
 Section: net
 Priority: optional
 Version: %s
