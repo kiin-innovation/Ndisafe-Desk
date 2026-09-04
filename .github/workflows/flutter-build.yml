@@ -285,6 +285,13 @@ jobs:
         run: |
           # Windows: build RustDesk
           # --hwcodec is shared by all Windows targets; per-target extras (e.g. --vram) come from the matrix
+          # Ensure Flutter dependencies and generated Dart code are present for CI
+          pushd flutter
+          flutter pub get
+          # Generate sources (freezed, json_serializable, etc.) if present
+          flutter pub run build_runner build --delete-conflicting-outputs || true
+          popd
+
           python3 .\build.py --portable --flutter --skip-portable-pack --hwcodec ${{ matrix.job.build-args }}
           mv ./flutter/build/windows/${{ matrix.job.flutter-arch }}/runner/Release ./rustdesk
 

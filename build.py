@@ -1031,7 +1031,14 @@ def build_flutter_windows(version, features, skip_portable_pack):
     if os.path.exists(portable_output):
         os.remove(portable_output)
     if not os.path.exists(portable_packer):
-        raise FileNotFoundError(f'Missing generated portable packer: {portable_packer}')
+        # Fallback: Cargo may place the binary in the workspace-level `target/release`.
+        fallback_packer = os.path.join(REPO_ROOT, 'target', 'release', 'rustdesk-portable-packer.exe')
+        if os.path.exists(fallback_packer):
+            print(f'Found portable packer at workspace target: {fallback_packer}; copying into {portable_packer}')
+            os.makedirs(os.path.dirname(portable_packer), exist_ok=True)
+            shutil.copy2(fallback_packer, portable_packer)
+        else:
+            raise FileNotFoundError(f'Missing generated portable packer: {portable_packer}')
     os.replace(portable_packer, portable_output)
     print(f'output location: {portable_output}')
     os.replace(portable_output, final_output)

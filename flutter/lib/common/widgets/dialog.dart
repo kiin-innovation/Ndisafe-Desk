@@ -1439,9 +1439,9 @@ showSetOSPassword(
   Function()? closeCallback,
 ) async {
   final controller = TextEditingController();
-  osPassword ??=
-      await bind.sessionGetOption(sessionId: sessionId, arg: 'os-password') ??
-          '';
+    osPassword ??=
+      (await bind.sessionGetOption(sessionId: sessionId, arg: 'os-password')) ??
+        '';
   var autoLogin =
       await bind.sessionGetOption(sessionId: sessionId, arg: 'auto-login') !=
           '';

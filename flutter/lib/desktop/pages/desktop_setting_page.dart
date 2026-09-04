@@ -2053,9 +2053,9 @@ class _DisplayState extends State<_Display> {
       setState(() {});
     }
 
-    String groupValue = bind.mainGetOptionSync(key: key);
+    String groupValue = bind.mainGetOptionSync(key: key) ?? '';
     if (groupValue.isEmpty) {
-      groupValue = bind.mainDefaultPrivacyModeImpl();
+      groupValue = bind.mainDefaultPrivacyModeImpl() ?? '';
     }
     return _Card(
       title: 'Privacy mode',
