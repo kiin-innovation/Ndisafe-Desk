@@ -79,6 +79,56 @@ def ensure_vcpkg_env():
             return
 
 
+def copy_vcpkg_runtime_dlls(target_dir: str):
+    """Copy runtime DLLs from vcpkg's installed/*/bin into `target_dir`.
+
+    This helps ensure native runtime dependencies (eg. opus.dll) are present
+    next to the Flutter Release exe so LoadLibrary succeeds at runtime.
+    """
+    installed_root = os.environ.get('VCPKG_INSTALLED_ROOT')
+    if not installed_root:
+        # nothing to do if vcpkg isn't configured
+        return
+
+    # Candidate triplets we commonly use; prefer exact x64-windows when present.
+    triplets = [
+        'x64-windows',
+        'x64-windows-static',
+        'x64-windows-md',
+        'arm64-windows',
+        'x86-windows'
+    ]
+
+    bins = []
+    for t in triplets:
+        p = os.path.join(installed_root, t, 'bin')
+        if os.path.isdir(p):
+            bins.append(p)
+
+    # fallback: include any installed/*/bin found
+    if not bins and os.path.isdir(installed_root):
+        for entry in os.scandir(installed_root):
+            b = os.path.join(entry.path, 'bin')
+            if os.path.isdir(b):
+                bins.append(b)
+
+    if not bins:
+        return
+
+    os.makedirs(target_dir, exist_ok=True)
+    copied = 0
+    for bdir in bins:
+        for dll in glob.glob(os.path.join(bdir, '*.dll')):
+            try:
+                shutil.copy2(dll, target_dir)
+                copied += 1
+            except Exception:
+                # Non-fatal: continue trying other files
+                pass
+    if copied:
+        print(f'Copied {copied} vcpkg runtime DLL(s) into {target_dir}')
+
+
 def get_version():
     with open("Cargo.toml", encoding="utf-8") as fh:
         for line in fh:
@@ -961,6 +1011,13 @@ def build_flutter_windows(version, features, skip_portable_pack):
     os.chdir('..')
     shutil.copy2('target/release/deps/dylib_virtual_display.dll',
                  flutter_build_dir_2)
+    # Ensure vcpkg-provided runtime DLLs (eg. opus.dll) are present next to the
+    # Flutter Release exe so LoadLibrary can find them at runtime.
+    try:
+        copy_vcpkg_runtime_dlls(flutter_build_dir_2)
+    except Exception:
+        # Non-fatal for build; packaging may still proceed.
+        print('Warning: copying vcpkg runtime DLLs failed; continuing')
     if skip_portable_pack:
         return
     os.chdir('libs/portable')
