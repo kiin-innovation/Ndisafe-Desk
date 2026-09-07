@@ -50,9 +50,9 @@ class EventToUI_Texture implements EventToUI {
   bool get field1 => f1;
 }
 
-abstract class Rustdesk {}
+abstract class NdisafeDesk {}
 
-class RustdeskImpl implements Rustdesk {
+class NdisafeDeskImpl implements NdisafeDesk {
   Future<void> stopGlobalEventStream({required String appType, dynamic hint}) {
     throw UnimplementedError("stopGlobalEventStream");
   }
