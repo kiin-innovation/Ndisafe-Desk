@@ -5,7 +5,7 @@ import 'package:flutter_hbb/generated_bridge.dart'
 final platformFFI = PlatformFFI.instance;
 final localeName = PlatformFFI.localeName;
 
-Rustdesk get bind => platformFFI.ffiBind;
+NdisafeDesk get bind => platformFFI.ffiBind;
 
 String ffiGetByName(String name, [String arg = '']) {
   return PlatformFFI.getByName(name, arg);
