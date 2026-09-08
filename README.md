@@ -122,6 +122,11 @@ C:\vcpkg\vcpkg install --triplet x64-windows-static
 
 ### 3. Start the local relay server (Docker)
 
+`calvin207/ndisafedesk` is the NDISafe-branded hbbs/hbbr image,
+automatically built and published to Docker Hub from this repository by the
+`docker-server.yml` workflow (`.github/workflows/docker-server.yml`).
+`docker run` pulls it automatically if you don't have it locally.
+
 ```powershell
 # Create data directory (stores generated key pair)
 New-Item -ItemType Directory -Path C:\ndisafe-server -Force
@@ -129,12 +134,12 @@ New-Item -ItemType Directory -Path C:\ndisafe-server -Force
 # Start rendezvous/ID server
 docker run --name hbbs `
   -p 21115:21115 -p 21116:21116 -p 21116:21116/udp -p 21118:21118 `
-  -v "C:\ndisafe-server:/root" -d rustdesk/rustdesk-server hbbs
+  -v "C:\ndisafe-server:/root" -d calvin207/ndisafedesk hbbs
 
 # Start relay server
 docker run --name hbbr `
   -p 21117:21117 -p 21119:21119 `
-  -v "C:\ndisafe-server:/root" -d rustdesk/rustdesk-server hbbr
+  -v "C:\ndisafe-server:/root" -d calvin207/ndisafedesk hbbr
 ```
 
 Get your server's public key (needed for `config.rs`):
@@ -266,10 +271,10 @@ When you have a VPS ready (DigitalOcean, Hetzner, Vultr — any $5/month VPS wor
 ```bash
 # On your VPS
 docker run --name hbbs -p 21115-21116:21115-21116 -p 21116:21116/udp -p 21118:21118 \
-  -v /opt/ndisafe-server:/root -d --restart=always rustdesk/rustdesk-server hbbs
+  -v /opt/ndisafe-server:/root -d --restart=always calvin207/ndisafedesk hbbs
 
 docker run --name hbbr -p 21117:21117 -p 21119:21119 \
-  -v /opt/ndisafe-server:/root -d --restart=always rustdesk/rustdesk-server hbbr
+  -v /opt/ndisafe-server:/root -d --restart=always calvin207/ndisafedesk hbbr
 
 cat /opt/ndisafe-server/id_ed25519.pub
 ```
