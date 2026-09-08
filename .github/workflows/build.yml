@@ -104,13 +104,13 @@ jobs:
           cd libs/virtual_display/dylib
           cargo build --locked --release
 
-      - name: Build librustdesk.dll and binaries
+      - name: Build librustdesk.dll
         env:
           VCPKG_ROOT: C:\vcpkg
           VCPKG_INSTALLED_ROOT: C:\vcpkg\installed
         shell: bash
         run: |
-          cargo build --locked --features flutter,hwcodec,unix-file-copy-paste --lib --bins --release
+          cargo build --locked --features flutter --lib --bins --release
 
       - name: Flutter pub get
         shell: bash
