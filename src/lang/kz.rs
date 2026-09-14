@@ -758,5 +758,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Continue", "Жалғастыру"),
         ("Browser didn't open? Use the url below to sign in.", "Браузер ашылмады ма? Кіру үшін төмендегі сілтемені пайдаланыңыз."),
         ("Lock canvas", "Кенепті құлыптау"),
+        ("Mask screen", "Экранды жасыру"),
+        ("Screen hidden by user", "Экранды пайдаланушы жасырды"),
     ].iter().cloned().collect();
 }
