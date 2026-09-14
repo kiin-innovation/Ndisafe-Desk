@@ -1,0 +1,32 @@
+# NDISafe Desk production relay/rendezvous servers.
+#
+# Usage on the VPS:
+#   cp .env.example .env        # set RELAY_PUBLIC_HOST to your public IP or domain
+#   docker compose up -d
+#
+# Get the public key for clients from ./data/id_ed25519.pub after first start.
+
+services:
+  hbbs:
+    image: calvin207/ndisafedesk:${RUSTDESK_SERVER_VERSION:-1.1.16}
+    container_name: hbbs
+    restart: unless-stopped
+    command: hbbs -r ${RELAY_PUBLIC_HOST}
+    ports:
+      - "21115:21115/tcp"
+      - "21116:21116/tcp"
+      - "21116:21116/udp"
+      - "21118:21118/tcp"
+    volumes:
+      - ./data:/root
+
+  hbbr:
+    image: calvin207/ndisafedesk:${RUSTDESK_SERVER_VERSION:-1.1.16}
+    container_name: hbbr
+    restart: unless-stopped
+    command: hbbr
+    ports:
+      - "21117:21117/tcp"
+      - "21119:21119/tcp"
+    volumes:
+      - ./data:/root
