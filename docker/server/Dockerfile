@@ -3,8 +3,9 @@
 # The hbbs/hbbr server binaries come from the official rustdesk-server
 # release; this image only repackages them so the README can reference a
 # server image this project publishes. The binaries are fully static, so the
-# final image is scratch-based like the official rustdesk-server image.
-# As there: run it as `calvin207/ndisafedesk hbbs` (or `hbbr`).
+# final image is debian-based only to provide a shell (bash/sh) for
+# debugging with `docker exec`. Run it as `calvin207/ndisafedesk hbbs`
+# (or `hbbr`).
 
 # syntax=docker/dockerfile:1.4
 
@@ -27,7 +28,7 @@ RUN case "${TARGETARCH}" in \
     && cp /tmp/server/${asset}/hbbs /tmp/server/${asset}/hbbr /out/ \
     && chmod +x /out/hbbs /out/hbbr
 
-FROM scratch
+FROM docker.io/debian:bookworm-slim
 
 ENV PATH=/usr/local/bin:/usr/bin:/bin
 
