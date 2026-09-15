@@ -686,14 +686,7 @@ class _RemotePageState extends State<RemotePage>
     removeSharedStates(widget.id);
   }
 
-  Widget emptyOverlay() => BlockableOverlay(
-        /// the Overlay key will be set with _blockableOverlayState in BlockableOverlay
-        /// see override build() in [BlockableOverlay]
-        state: _blockableOverlayState,
-        underlying: Container(
-          color: Colors.transparent,
-        ),
-      );
+  Widget emptyOverlay() => Container(color: Colors.transparent);
 
   Widget buildBody(BuildContext context) {
     remoteToolbar(BuildContext context) => RemoteToolbar(
@@ -823,11 +816,10 @@ class _RemotePageState extends State<RemotePage>
             _blockableOverlayState = BlockableOverlayState();
             _blockableOverlayState.applyFfi(_ffi);
           }
-          // Block the whole `bodyWidget()` when dialog shows.
-          return BlockableOverlay(
-            underlying: bodyWidget(),
-            state: _blockableOverlayState,
-          );
+          // `BlockableOverlay` (Flutter Overlay) renders a white background
+          // over the remote view, so leave `bodyWidget()` unwrapped.
+          // Dialogs/chat fall back to the global overlay automatically.
+          return bodyWidget();
         } else {
           // `_blockableOverlayState` is not recreated here.
           // The toolbar's block state won't work properly when reconnecting, but that's okay.
