@@ -772,29 +772,6 @@ class _RemotePageState extends State<RemotePage>
               _ffi.ffiModel.pi.isSet.isFalse ? emptyOverlay() : Offstage(),
             ],
           ),
-          // When the host masks the remote view (e.g. while entering credentials),
-          // cover the whole session with a black screen and a notice.
-          Obx(() => _ffi.ffiModel.permissions['mask_credentials'] == true
-              ? Container(
-                  color: Colors.black,
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.lock_outline_rounded,
-                          color: Colors.white, size: 48),
-                      const SizedBox(height: 16),
-                      Text(
-                        translate('Screen hidden by user'),
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 24),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                )
-              : const Offstage()),
         ],
       );
     }

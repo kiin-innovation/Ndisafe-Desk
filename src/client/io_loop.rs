@@ -1839,9 +1839,6 @@ impl<T: InvokeUiSession> Remote<T> {
                             Ok(Permission::PrivacyMode) => {
                                 self.handler.set_permission("privacy_mode", p.enabled);
                             }
-                            Ok(Permission::MaskCredentials) => {
-                                self.handler.set_permission("mask_credentials", p.enabled);
-                            }
                             _ => {}
                         }
                     }

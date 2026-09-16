@@ -828,7 +828,6 @@ class Client {
   bool recording = false;
   bool blockInput = false;
   bool privacyMode = false;
-  bool credentialsMask = false;
   bool disconnected = false;
   bool fromSwitch = false;
   bool inVoiceCall = false;
@@ -858,7 +857,6 @@ class Client {
     recording = json['recording'];
     blockInput = json['block_input'];
     privacyMode = json['privacy_mode'] ?? privacyMode;
-    credentialsMask = json['credentials_mask'] ?? credentialsMask;
     disconnected = json['disconnected'];
     fromSwitch = json['from_switch'];
     inVoiceCall = json['in_voice_call'];
@@ -884,7 +882,6 @@ class Client {
     data['recording'] = recording;
     data['block_input'] = blockInput;
     data['privacy_mode'] = privacyMode;
-    data['credentials_mask'] = credentialsMask;
     data['disconnected'] = disconnected;
     data['from_switch'] = fromSwitch;
     data['in_voice_call'] = inVoiceCall;

@@ -91,7 +91,6 @@ How a connection works:
 These are the intentional NDISafe changes over upstream RustDesk. When in doubt, blame one of these commits.
 
 - **Baked-in rendezvous + key** — `config.rs` points at the VPS and its real public key, so users do zero configuration.
-- **Mask screen permission** — a host-side toggle ("Mask screen" in the server/connection management page). When enabled it hides the host's view from the controller (video suppressed, controller input blocked) while the host types credentials. Implemented across `src/server/connection.rs` (`credentials_mask`), the Flutter `credentialsMask` model, and `remote_page.dart`.
 - **Portable installer + MSI** — CI produces a self-extracting installer and an `.msi`, not just a zip.
 - **Server image with a shell** — the hbbs/hbbr Docker image is Debian-based (not `FROM scratch`) so you can `docker exec -it hbbs bash` to debug.
 
@@ -304,7 +303,7 @@ Ndisafe-Desk/
 │   ├── core_main.rs        # App startup, IPC, portable service
 │   ├── client.rs           # Client connection logic (Key mismatch lives here)
 │   ├── client/io_loop.rs   # Controller-side message loop, permissions
-│   ├── server/connection.rs# Host-side connection, masking, input gating
+│   ├── server/connection.rs# Host-side connection and input gating
 │   ├── rendezvous_mediator.rs # Communication with hbbs
 │   ├── flutter.rs          # Flutter FFI exports
 │   ├── platform/           # Windows/macOS/Linux platform code
@@ -320,7 +319,7 @@ Ndisafe-Desk/
 │   │   ├── common.dart     # MyTheme colors
 │   │   ├── desktop/        # Desktop UI pages and widgets
 │   │   │   └── pages/remote_page.dart  # ← remote view (overlay fix landed here)
-│   │   │   └── pages/server_page.dart  # ← host connection manager + Mask screen toggle
+│   │   │   └── pages/server_page.dart  # ← host connection manager
 │   │   └── mobile/         # Mobile UI
 │   ├── assets/             # Icons, SVGs, fonts
 │   └── windows/runner/     # Windows runner (CMake, .rc file, icon)
@@ -362,7 +361,7 @@ Ndisafe-Desk/
 - The peer's client build has a different baked `RS_PUB_KEY` than the server actually uses.
 - Read the server's real key: `docker exec hbbs cat /root/id_ed25519.pub` (VPS) — for this project it must be `2SvuoqbjN93LAF227EEGaj0fHNXd9V83IuhUv4HOGQM=`.
 - Fix: update `config.rs`, rebuild, and **redeploy to every machine** (especially the remote peer — e.g. `192.168.1.223` — which is easy to forget).
-- Yes, "Key mismatch" wrapping a black screen / blocked session is exactly what the **mask screen** feature intends: the host toggled it. Toggle it off in the host's connection manager.
+- Make sure the peer runs a build with the same `RS_PUB_KEY` (redeploy to every machine; the remote peer is easy to forget).
 
 **App opens to a white/blank screen, or the remote view has a white cover**
 - Another NDISafe Desk/RustDesk instance from an older path may still be running. Kill all `rustdesk`/`ndisafe-desk` processes and relaunch.
