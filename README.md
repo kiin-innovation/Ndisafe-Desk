@@ -91,6 +91,7 @@ How a connection works:
 These are the intentional NDISafe changes over upstream RustDesk. When in doubt, blame one of these commits.
 
 - **Baked-in rendezvous + key** — `config.rs` points at the VPS and its real public key, so users do zero configuration.
+- **Mask screen permission** — a host-side toggle ("Mask screen" in the server/connection management page). When enabled it hides the host's view from the controller behind a fullscreen black notice (video suppressed, controller input blocked) while the host types credentials. Per-connection only, never persisted.
 - **Portable installer + MSI** — CI produces a self-extracting installer and an `.msi`, not just a zip.
 - **Server image with a shell** — the hbbs/hbbr Docker image is Debian-based (not `FROM scratch`) so you can `docker exec -it hbbs bash` to debug.
 
@@ -319,7 +320,7 @@ Ndisafe-Desk/
 │   │   ├── common.dart     # MyTheme colors
 │   │   ├── desktop/        # Desktop UI pages and widgets
 │   │   │   └── pages/remote_page.dart  # ← remote view (overlay fix landed here)
-│   │   │   └── pages/server_page.dart  # ← host connection manager
+│   │   │   └── pages/server_page.dart  # ← host connection manager + Mask screen toggle
 │   │   └── mobile/         # Mobile UI
 │   ├── assets/             # Icons, SVGs, fonts
 │   └── windows/runner/     # Windows runner (CMake, .rc file, icon)

@@ -636,6 +636,7 @@ message PermissionInfo {
     Recording = 6;
     BlockInput = 7;
     PrivacyMode = 8;
+    MaskCredentials = 9;
   }
 
   Permission permission = 1;

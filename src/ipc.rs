@@ -339,6 +339,7 @@ pub enum Data {
         recording: bool,
         block_input: bool,
         privacy_mode: bool,
+        credentials_mask: bool,
         from_switch: bool,
     },
     ChatMessage {

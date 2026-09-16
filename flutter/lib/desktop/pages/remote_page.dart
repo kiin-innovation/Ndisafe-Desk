@@ -686,7 +686,10 @@ class _RemotePageState extends State<RemotePage>
     removeSharedStates(widget.id);
   }
 
-  Widget emptyOverlay() => Container(color: Colors.transparent);
+  // Zero-size placeholder: never paints, never hit-tests, so it can
+  // never swallow mouse input or tint the video, even if the
+  // wait-for-first-image flag ever sticks.
+  Widget emptyOverlay() => const SizedBox.shrink();
 
   Widget buildBody(BuildContext context) {
     remoteToolbar(BuildContext context) => RemoteToolbar(
@@ -770,6 +773,35 @@ class _RemotePageState extends State<RemotePage>
                         ])
                       : remoteToolbar(context)),
               _ffi.ffiModel.pi.isSet.isFalse ? emptyOverlay() : Offstage(),
+              // When the host masks the screen (e.g. while entering credentials),
+              // cover the whole session with an unmistakable fullscreen black
+              // layer. Positioned.fill guarantees real fullscreen coverage
+              // (a bare Container would shrink-wrap its child and leave video
+              // visible around it). Plain Stack child — no Overlay widget, so
+              // no white-canvas compositing issue.
+              Obx(() => _ffi.ffiModel.permissions['mask_credentials'] == true
+                  ? Positioned.fill(
+                      child: Container(
+                        color: Colors.black,
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.lock_outline_rounded,
+                                color: Colors.white, size: 48),
+                            const SizedBox(height: 16),
+                            Text(
+                              translate('Screen hidden by user'),
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 24),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : const Offstage()),
             ],
           ),
         ],
