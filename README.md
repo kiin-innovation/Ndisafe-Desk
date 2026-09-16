@@ -21,9 +21,31 @@ NDISafe Desk is a TeamViewer-style remote desktop application built on top of [R
 
 **Key differences from upstream RustDesk:**
 - Branded with the NDISafe identity (logo, colors, app name)
-- Pre-configured to connect to your own `hbbs`/`hbbr` server
+- Pre-configured to connect to your own `hbbs`/`hbbr` server — the rendezvous IP **and** public key are baked into the binary, so users never configure anything
 - Portable Windows build distributed via GitHub Actions CI
 - No dependency on any third-party relay service
+
+---
+
+## Current Deployment (as of this writing)
+
+| Item | Value |
+|---|---|
+| Production VPS | `68.168.211.152` |
+| Server public key | `2SvuoqbjN93LAF227EEGaj0fHNXd9V83IuhUv4HOGQM=` |
+| Server image | `calvin207/ndisafedesk:1.1.16` (published by CI, Debian-based with `bash`/`sh`) |
+| Docker Compose | `docker/server/docker-compose.yml` (run on the VPS) |
+| Known peer for testing | `192.168.1.223` (LAN machine, runs the same client build) |
+| Client build version | `1.4.9` |
+
+The values above are set in **`libs/hbb_common/src/config.rs`**:
+
+```rust
+pub const RENDEZVOUS_SERVERS: &[&str] = &["68.168.211.152"];
+pub const RS_PUB_KEY: &str = "2SvuoqbjN93LAF227EEGaj0fHNXd9V83IuhUv4HOGQM=";
+```
+
+> ⚠️ **Every peer must use a build with the same `RS_PUB_KEY`.** If one machine has an older/different key baked in, the server responds `LICENSE_MISMATCH` and the connection fails with **`Key mismatch`** (see Troubleshooting). Keep the old downloads around only if you still need them; otherwise replace all machines at once.
 
 ---
 
@@ -55,6 +77,24 @@ NDISafe Desk is a TeamViewer-style remote desktop application built on top of [R
 | `hbbs` | RustDesk server | ID registration and NAT traversal |
 | `hbbr` | RustDesk server | Relay when direct connection fails |
 
+How a connection works:
+
+1. The client starts and registers its 9-digit ID with `hbbs` via UDP/TCP `21116`.
+2. The controller asks `hbbs` where the peer is; hbbs answers with the peer's current address.
+3. Both sides attempt a direct (punch-through) connection. If that fails, traffic goes through `hbbr` relay on `21117`.
+4. On top of the (possibly relayed) TCP stream, NDISafe Desk runs its own custom protocol (`src/rendezvous_mediator.rs` / `src/server/connection.rs`).
+
+---
+
+## Customizations in this fork
+
+These are the intentional NDISafe changes over upstream RustDesk. When in doubt, blame one of these commits.
+
+- **Baked-in rendezvous + key** — `config.rs` points at the VPS and its real public key, so users do zero configuration.
+- **Mask screen permission** — a host-side toggle ("Mask screen" in the server/connection management page). When enabled it hides the host's view from the controller (video suppressed, controller input blocked) while the host types credentials. Implemented across `src/server/connection.rs` (`credentials_mask`), the Flutter `credentialsMask` model, and `remote_page.dart`.
+- **Portable installer + MSI** — CI produces a self-extracting installer and an `.msi`, not just a zip.
+- **Server image with a shell** — the hbbs/hbbr Docker image is Debian-based (not `FROM scratch`) so you can `docker exec -it hbbs bash` to debug.
+
 ---
 
 ## For Team Members — Running the App
@@ -64,9 +104,9 @@ NDISafe Desk is a TeamViewer-style remote desktop application built on top of [R
 1. Go to [GitHub Actions](https://github.com/kiin-innovation/Ndisafe-Desk/actions)
 2. Click the latest successful **NDISafe Desk – Windows Portable Build** run
 3. Scroll to **Artifacts** at the bottom
-4. Download **NDISafe-Desk-1.4.9-windows-portable**
+4. Download **NDISafe-Desk-1.4.9-windows-portable** (zip), or the self-extracting **exe** / **msi**
 5. Extract the zip to any folder (e.g. `C:\NDISafe Desk\`)
-6. Double-click **`rustdesk.exe`**
+6. Double-click **`ndisafe-desk.exe`**
 
 > **Windows Defender note:** On first run Windows may show a SmartScreen warning. Click **More info → Run anyway**. This happens because the exe is not yet code-signed.
 
@@ -120,56 +160,9 @@ $env:VCPKG_INSTALLED_ROOT = "C:\vcpkg\installed"
 C:\vcpkg\vcpkg install --triplet x64-windows-static
 ```
 
-### 3. Start the local relay server (Docker)
+> `VCPKG_INSTALLED_ROOT` must point to `C:\vcpkg\installed`, **not** `C:\vcpkg\installed\x64-windows-static` — the build scripts append the triplet name themselves.
 
-`calvin207/ndisafedesk` is the NDISafe-branded hbbs/hbbr image,
-automatically built and published to Docker Hub from this repository by the
-`docker-server.yml` workflow (`.github/workflows/docker-server.yml`).
-`docker run` pulls it automatically if you don't have it locally.
-
-```powershell
-# Create data directory (stores generated key pair)
-New-Item -ItemType Directory -Path C:\ndisafe-server -Force
-
-# Start rendezvous/ID server
-docker run --name hbbs `
-  -p 21115:21115 -p 21116:21116 -p 21116:21116/udp -p 21118:21118 `
-  -v "C:\ndisafe-server:/root" -d calvin207/ndisafedesk hbbs
-
-# Start relay server
-docker run --name hbbr `
-  -p 21117:21117 -p 21119:21119 `
-  -v "C:\ndisafe-server:/root" -d calvin207/ndisafedesk hbbr
-```
-
-Get your server's public key (needed for `config.rs`):
-
-```powershell
-Get-Content C:\ndisafe-server\id_ed25519.pub
-```
-
-Make containers restart automatically after reboot:
-
-```powershell
-docker update --restart=always hbbs hbbr
-```
-
-### 4. Configure the server address
-
-Edit `libs/hbb_common/src/config.rs`:
-
-```rust
-// Line ~117 — set to your machine's LAN IP or VPS IP
-pub const RENDEZVOUS_SERVERS: &[&str] = &["192.168.1.xxx"];
-
-// Line ~118 — paste the key from id_ed25519.pub
-pub const RS_PUB_KEY: &str = "your-base64-key-here=";
-```
-
-> **For production:** replace `192.168.1.xxx` with your VPS IP or domain.  
-> **For local dev:** use your machine's Wi-Fi IP (`ipconfig` → look for 192.168.x.x).
-
-### 5. Build and run locally
+### 3. Build and run locally
 
 ```powershell
 $env:VCPKG_ROOT = "C:\vcpkg"
@@ -183,12 +176,18 @@ cargo build --features flutter --lib --bins --release
 # Build the Flutter UI (needed when flutter/lib/ changes)
 cd flutter; flutter build windows --release; cd ..
 
-# Copy all required files to the output directory
+# Rust build first, THEN flutter build — flutter's CMake links against the
+# fresh librustdesk.dll. Verify $d\librustdesk.dll timestamp is newer.
+```
+
+Then copy the freshly built Rust binaries over the Flutter output (this is exactly what `.github/workflows/build.yml` "Assemble portable bundle" does):
+
+```powershell
 Copy-Item "$t\librustdesk.dll","$t\service.exe","$t\naming.exe","$t\dylib_virtual_display.dll" $d -Force
 Copy-Item "C:\vcpkg\installed\x64-windows-static\bin\opus.dll" $d -Force
 
 # Launch
-Start-Process "$d\rustdesk.exe" -WorkingDirectory $d
+Start-Process "$d\ndisafe-desk.exe" -WorkingDirectory $d
 ```
 
 **When do I need to rebuild what?**
@@ -197,36 +196,143 @@ Start-Process "$d\rustdesk.exe" -WorkingDirectory $d
 |---|---|
 | `src/**/*.rs` or `libs/**/*.rs` | Rust only: `cargo build --features flutter --lib --bins --release` |
 | `flutter/lib/**/*.dart` | Flutter only: `flutter build windows --release` |
+| `libs/hbb_common/src/config.rs` | Rust only (this bake-in is compiled into the binary) |
 | Both | Rust first, then Flutter |
+
+---
+
+## Logs, Config, and Debugging
+
+The app does **not** use the upstream `%APPDATA%\RustDesk\` folder. With the brand rename, everything lives under the app name:
+
+```
+%APPDATA%\NDISafe Desk\
+├── config\NDISafe Desk.toml     # options + confirmed keys
+├── log\
+│   └── ndisafe-desk_rCURRENT.log  # the real log file to grep
+└── ...
+```
+
+Key log facts:
+
+- A **fresh** log file is written each run; `rCURRENT` is the live one.
+- When connecting, expect lines about rendezvous (`68.168.211.152:21116`), a punch attempt with the peer's LAN IP + an 8-9 digit id, and a possible `Connection closed: Key mismatch(0)` (see below).
+- `Key mismatch` comes from `bail!("Key mismatch")` at `src/client.rs` when `hbbs` answers `LICENSE_MISMATCH` — the peer's client build has a different baked key than the server.
+
+Debug sessions:
+
+```powershell
+# tail the live log
+Get-Content "$env:APPDATA\NDISafe Desk\log\ndisafe-desk_rCURRENT.log" -Tail 50 -Wait
+```
 
 ---
 
 ## CI/CD — GitHub Actions
 
-The workflow file is at `.github/workflows/build.yml`.
+Workflows in `.github/workflows/`:
 
-It runs automatically on every push to `ndisafe-desk` and can also be triggered manually via **Actions → Run workflow**.
+| Workflow | Triggers | Produces |
+|---|---|---|
+| `build.yml` | push to `ndisafe-desk`, manual | portable zip, self-extracting `NDISafe-Desk-1.4.9-windows-x86_64.exe`, `NDISafe-Desk-1.4.9-windows-x86_64.msi` |
+| `docker-server.yml` | push to `ndisafe-desk` | `calvin207/ndisafedesk:latest` and `:1.1.16` on Docker Hub |
+| `bridge.yml` | used by the build | Flutter/Rust FFI bridge files |
 
-**What the pipeline does:**
+`build.yml` in detail: `generate-bridge` (Ubuntu) then `build-windows` (Windows 2022) which installs tooling, runs `cargo build --features flutter --lib --bins --release`, runs `flutter build windows --release`, assembles the portable bundle, builds the self-extracting installer (`libs/portable/generate.py`), builds the MSI (msi.sln), and uploads artifacts.
 
-1. **`generate-bridge`** (Ubuntu, ~5 min) — generates the Flutter/Rust FFI bridge files
-2. **`build-windows`** (Windows 2022, ~30 min):
-   - Installs LLVM, Flutter 3.24.5, Rust 1.75, vcpkg
-   - Builds `librustdesk.dll` with `--features flutter`
-   - Builds `service.exe` and `naming.exe`
-   - Runs `flutter build windows --release`
-   - Assembles everything into a portable zip with `opus.dll` and support binaries
-   - Uploads artifact: **`NDISafe-Desk-1.4.9-windows-portable`**
+**Notes:**
+- The Docker workflow requires `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets; without them it fails.
+- The Docker image builds with the **current** `config.rs` too, so server and clients stay in sync only when you push both at once.
 
 **Trigger a build manually:**
 
 ```powershell
-# Empty commit approach (no GitHub CLI login needed)
 git commit --allow-empty -m "ci: trigger build"
 git push origin ndisafe-desk
 ```
 
 Or via GitHub UI: Actions tab → **NDISafe Desk – Windows Portable Build** → **Run workflow**.
+
+> The GitHub CLI (`gh`) is not authenticated on the dev machine, so CI status is checked via the Actions web UI, not terminal.
+
+---
+
+## Server Deployment (VPS)
+
+The server lives in `docker/server/` (a compose file plus the custom `Dockerfile` that layers the packaged `hbbs`/`hbbr` onto Debian).
+
+```bash
+# On the VPS
+cd docker/server
+cp .env.example .env        # set RELAY_PUBLIC_HOST to your public IP or domain
+docker compose pull         # get the freshly built image
+docker compose up -d        # starts hbbs (21115/21116/21118) and hbbr (21117/21119)
+docker exec -it hbbs bash   # shell available for debugging
+```
+
+- The server key pair is generated on **first start** and persisted in the volume (`./data/` on the VPS, `C:\ndisafe-server\` in local dev). `id_ed25519.pub` holds the public key — copy it into `config.rs` if the server is ever recreated.
+- Restarting the container does **not** regenerate the key (good — the baked client key keeps matching).
+- Firewall ports to open on the VPS:
+
+| Port | Protocol | Purpose |
+|---|---|---|
+| 21115 | TCP | NAT test |
+| 21116 | TCP + UDP | ID registration, heartbeat |
+| 21117 | TCP | Relay |
+| 21118 | TCP | WebSocket rendezvous |
+| 21119 | TCP | WebSocket relay |
+
+### Local dev server (Docker Desktop)
+
+```powershell
+New-Item -ItemType Directory -Path C:\ndisafe-server -Force
+docker run --name hbbs -p 21115:21115 -p 21116:21116 -p 21116:21116/udp -p 21118:21118 -v "C:\ndisafe-server:/root" -d calvin207/ndisafedesk hbbs
+docker run --name hbbr -p 21117:21117 -p 21119:21119 -v "C:\ndisafe-server:/root" -d calvin207/ndisafedesk hbbr
+docker update --restart=always hbbs hbbr
+Get-Content C:\ndisafe-server\id_ed25519.pub
+```
+
+> **Do not rely on a local LAN Docker server for real use.** The production setup is the VPS (68.168.211.152); all clients point at it. Using a LAN host instead means every client's baked key/address must point at that machine instead.
+
+---
+
+## Repository Structure
+
+```
+Ndisafe-Desk/
+├── src/                    # Rust application source
+│   ├── core_main.rs        # App startup, IPC, portable service
+│   ├── client.rs           # Client connection logic (Key mismatch lives here)
+│   ├── client/io_loop.rs   # Controller-side message loop, permissions
+│   ├── server/connection.rs# Host-side connection, masking, input gating
+│   ├── rendezvous_mediator.rs # Communication with hbbs
+│   ├── flutter.rs          # Flutter FFI exports
+│   ├── platform/           # Windows/macOS/Linux platform code
+│   └── lang/               # Localization (template.rs is the key list; never edit as part of translations)
+├── libs/
+│   ├── hbb_common/         # Config, proto, shared utils (OWNED — not a submodule)
+│   │   └── src/config.rs   # ← SERVER ADDRESS and PUBLIC KEY live here
+│   ├── scrap/              # Screen capture
+│   ├── enigo/              # Input simulation
+│   └── virtual_display/    # Virtual display driver (Windows)
+├── flutter/
+│   ├── lib/
+│   │   ├── common.dart     # MyTheme colors
+│   │   ├── desktop/        # Desktop UI pages and widgets
+│   │   │   └── pages/remote_page.dart  # ← remote view (overlay fix landed here)
+│   │   │   └── pages/server_page.dart  # ← host connection manager + Mask screen toggle
+│   │   └── mobile/         # Mobile UI
+│   ├── assets/             # Icons, SVGs, fonts
+│   └── windows/runner/     # Windows runner (CMake, .rc file, icon)
+├── docker/server/          # Dockerfile + docker-compose for hbbs/hbbr
+├── res/
+│   ├── ndisafe_logo.svg    # ← Master logo
+│   └── icon.ico            # Compiled icon (auto-generated)
+└── .github/workflows/
+    ├── build.yml           # ← NDISafe CI (portable zip + installers)
+    ├── docker-server.yml   # ← builds/pushes calvin207/ndisafedesk
+    └── bridge.yml          # Flutter/Rust FFI bridge generation
+```
 
 ---
 
@@ -235,8 +341,7 @@ Or via GitHub UI: Actions tab → **NDISafe Desk – Windows Portable Build** �
 | Asset | Location | Notes |
 |---|---|---|
 | Logo SVG | `res/ndisafe_logo.svg` | Source of truth for all icon/logo derivatives |
-| App icon (exe) | `flutter/windows/runner/resources/app_icon.ico` | 16/32/48/64/128/256px, embedded in `.exe` |
-| Legacy icon | `res/icon.ico` | Used by Sciter build path |
+| App icon (exe) | `flutter/windows/runner/resources/app_icon.ico` | Embedded in `.exe` |
 | Flutter logo asset | `flutter/assets/logo.svg` | Shown on the main screen |
 | App name | `libs/hbb_common/src/config.rs` → `APP_NAME` | `"NDISafe Desk"` |
 
@@ -249,120 +354,36 @@ Or via GitHub UI: Actions tab → **NDISafe Desk – Windows Portable Build** �
 | NDISafe Navy | `#2A496E` | Deep backgrounds, canvas |
 | NDISafe Dark Navy | `#1A2E42` | Dark theme canvas |
 
-To regenerate icons after updating the logo SVG:
-
-```powershell
-# Requires: node (sharp), python (Pillow)
-node C:\tmp_build2\render.js  # renders PNGs at each size
-
-python -c "
-# ... (see scripts/gen_icon.py for full script)
-"
-```
-
----
-
-## Moving to Production
-
-When you have a VPS ready (DigitalOcean, Hetzner, Vultr — any $5/month VPS works):
-
-### 1. Deploy server
-
-```bash
-# On your VPS
-docker run --name hbbs -p 21115-21116:21115-21116 -p 21116:21116/udp -p 21118:21118 \
-  -v /opt/ndisafe-server:/root -d --restart=always calvin207/ndisafedesk hbbs
-
-docker run --name hbbr -p 21117:21117 -p 21119:21119 \
-  -v /opt/ndisafe-server:/root -d --restart=always calvin207/ndisafedesk hbbr
-
-cat /opt/ndisafe-server/id_ed25519.pub
-```
-
-### 2. Update client config
-
-In `libs/hbb_common/src/config.rs`:
-
-```rust
-pub const RENDEZVOUS_SERVERS: &[&str] = &["your.vps.domain.or.ip"];
-pub const RS_PUB_KEY: &str = "your-production-public-key=";
-```
-
-### 3. Open firewall ports
-
-| Port | Protocol | Purpose |
-|---|---|---|
-| 21115 | TCP | NAT test |
-| 21116 | TCP + UDP | ID registration, heartbeat |
-| 21117 | TCP | Relay |
-| 21118 | TCP | WebSocket rendezvous |
-| 21119 | TCP | WebSocket relay |
-
-### 4. Push and rebuild
-
-```powershell
-git add libs/hbb_common/src/config.rs
-git commit -m "deploy: switch to production VPS server"
-git push origin ndisafe-desk
-```
-
-CI builds automatically. Download the new artifact and distribute to your team.
-
----
-
-## Repository Structure
-
-```
-Ndisafe-Desk/
-├── src/                    # Rust application source
-│   ├── core_main.rs        # App startup, IPC, portable service
-│   ├── flutter.rs          # Flutter FFI exports (rustdesk_core_main_args)
-│   ├── platform/           # Windows/macOS/Linux platform code
-│   └── server/             # Audio, clipboard, input, video services
-├── libs/
-│   ├── hbb_common/         # Config, proto, shared utils (OWNED — not a submodule)
-│   │   └── src/config.rs   # ← SERVER ADDRESS and PUBLIC KEY live here
-│   ├── scrap/              # Screen capture
-│   ├── enigo/              # Input simulation
-│   └── virtual_display/    # Virtual display driver (Windows)
-├── flutter/
-│   ├── lib/
-│   │   ├── common.dart     # ← MyTheme colors live here
-│   │   ├── desktop/        # Desktop UI pages and widgets
-│   │   └── mobile/         # Mobile UI
-│   ├── assets/             # Icons, SVGs, fonts
-│   └── windows/runner/     # Windows runner (CMake, .rc file, icon)
-├── res/
-│   ├── ndisafe_logo.svg    # ← Master logo
-│   └── icon.ico            # Compiled icon (auto-generated)
-└── .github/workflows/
-    ├── build.yml           # ← NDISafe CI (Flutter portable zip)
-    └── bridge.yml          # Flutter/Rust FFI bridge generation
-```
-
 ---
 
 ## Troubleshooting
 
-**App opens to a white/blank screen**
-- Another RustDesk instance from a different path is running. Kill all `rustdesk` processes and relaunch from your build directory.
+**`Connection closed: Key mismatch(0)` when connecting**
+- The peer's client build has a different baked `RS_PUB_KEY` than the server actually uses.
+- Read the server's real key: `docker exec hbbs cat /root/id_ed25519.pub` (VPS) — for this project it must be `2SvuoqbjN93LAF227EEGaj0fHNXd9V83IuhUv4HOGQM=`.
+- Fix: update `config.rs`, rebuild, and **redeploy to every machine** (especially the remote peer — e.g. `192.168.1.223` — which is easy to forget).
+- Yes, "Key mismatch" wrapping a black screen / blocked session is exactly what the **mask screen** feature intends: the host toggled it. Toggle it off in the host's connection manager.
+
+**App opens to a white/blank screen, or the remote view has a white cover**
+- Another NDISafe Desk/RustDesk instance from an older path may still be running. Kill all `rustdesk`/`ndisafe-desk` processes and relaunch.
+- If the **remote view** is covered in white: this was the `BlockableOverlay` white-canvas bug (Flutter `Overlay` widget painting white). Fixed by rendering the remote body unwrapped (`remote_page.dart`). A build with commit `3714e9b9a` or later is required.
 
 **"Connection failed" or can't connect to peers**
-- Check that `hbbs` and `hbbr` Docker containers are running: `docker ps`
-- Verify the IP in `config.rs` matches your actual machine IP: `ipconfig` → Wi-Fi adapter
-- Ensure Windows Firewall allows ports 21115–21117
+- Check `hbbs`/`hbbr` containers are running: `docker ps` / `docker compose ps`
+- Verify the IP/key in `config.rs` matches your server
+- Ensure firewall allows ports 21115–21119 (TCP) and 21116 UDP
+- Check the log: `%APPDATA%\NDISafe Desk\log\`
 
 **Flutter build fails with "Visual Studio 16 2019 not found"**
-- You have VS Build Tools 2026 (VS18). The Flutter tool needs a patch:
-  - In `C:\flutter\packages\flutter_tools\lib\src\windows\visual_studio.dart`, add `18 => 'Visual Studio 18 2026',` to the `cmakeGenerator` switch
+- The Flutter tool needs a patch for newer VS versions:
+  - In `C:\flutter\packages\flutter_tools\lib\src\windows\visual_studio.dart`, add the matching `cmakeGenerator` entry
   - Delete `C:\flutter\bin\cache\flutter_tools.snapshot` and rerun
 
 **`scrap` build fails with "vpx/vp8.h not found"**
-- `VCPKG_INSTALLED_ROOT` must point to `C:\vcpkg\installed`, **not** `C:\vcpkg\installed\x64-windows-static`. The build scripts append the triplet name themselves.
+- `VCPKG_INSTALLED_ROOT` must point to `C:\vcpkg\installed` (the scripts append the triplet themselves).
 
 **opus.dll not found at runtime**
-- Copy `C:\vcpkg\installed\x64-windows-static\bin\opus.dll` into the same directory as `rustdesk.exe`
-- Or add that directory to your user PATH
+- Copy `C:\vcpkg\installed\x64-windows-static\bin\opus.dll` next to `ndisafe-desk.exe`, or add that directory to PATH.
 
 ---
 
