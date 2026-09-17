@@ -89,11 +89,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "Purslane Tech Pte. Ltd." "\0"
+            VALUE "CompanyName", "Kiin Innovation. Ltd." "\0"
             VALUE "FileDescription", "NDISafe Desk Remote Desktop" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "ndisafe-desk" "\0"
-            VALUE "LegalCopyright", "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright © 2026 Kiin innovation. Ltd. All rights reserved." "\0"
             VALUE "OriginalFilename", "ndisafe-desk.exe" "\0"
             VALUE "ProductName", "NDISafe Desk" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
