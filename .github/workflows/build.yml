@@ -370,3 +370,143 @@ jobs:
           name: NDISafe-Desk-${{ env.VERSION }}-macos-${{ matrix.job.arch }}
           path: ndisafe-desk-${{ env.VERSION }}-${{ matrix.job.arch }}.dmg
           retention-days: 30
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    needs: generate-bridge
+
+    steps:
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore bridge files
+        uses: actions/download-artifact@v4
+        with:
+          name: bridge-artifact
+          path: ./
+
+      - name: Maximize build space
+        run: |
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          df -h
+          free -m
+
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@49819abfb41bd9b44fb781159c033dba90353a7c
+        with:
+          swap-size-gb: 12
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            cmake \
+            curl \
+            gcc \
+            git \
+            g++ \
+            libayatana-appindicator3-dev \
+            libasound2-dev \
+            libclang-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libgtk-3-dev \
+            libpulse-dev \
+            libva-dev \
+            libxcb-randr0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxdo-dev \
+            libxfixes-dev \
+            llvm-dev \
+            nasm \
+            ninja-build \
+            pkg-config \
+            python3 \
+            unzip \
+            wget \
+            xz-utils \
+            libssl-dev
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          architecture: x64
+
+      - name: Apply Flutter 3.24.5 dropdown patch
+        run: |
+          cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff \
+            $(dirname $(dirname $(which flutter)))
+          cd $(dirname $(dirname $(which flutter)))
+          git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          prefix-key: linux
+
+      - name: Build cdylib only (skip staticlib/rlib)
+        run: |
+          sed -i "s/\[\"cdylib\", \"staticlib\", \"rlib\"\]/\[\"cdylib\"\]/g" Cargo.toml
+
+      - name: Setup vcpkg with GitHub Actions binary cache
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2
+        with:
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Install vcpkg dependencies
+        run: |
+          if ! $VCPKG_ROOT/vcpkg install \
+              --triplet x64-linux \
+              --x-install-root="$VCPKG_ROOT/installed"; then
+            find "${VCPKG_ROOT}/" -name "*.log" | while read -r f; do
+              echo "$f:"; cat "$f"; echo
+            done
+            exit 1
+          fi
+
+      - name: Build librustdesk.so
+        env:
+          VCPKG_INSTALLED_ROOT: ${{ env.VCPKG_ROOT }}/installed
+        run: |
+          cargo build --locked --features hwcodec,flutter,unix-file-copy-paste --lib --release
+
+      - name: Build Flutter Linux release
+        run: |
+          cd flutter
+          flutter pub get
+          flutter build linux --release
+
+      - name: Assemble portable tarball
+        run: |
+          tar -czf NDISafe-Desk-${{ env.VERSION }}-linux-portable.tar.gz \
+            -C flutter/build/linux/x64/release/bundle .
+          ls -la NDISafe-Desk-${{ env.VERSION }}-linux-portable.tar.gz
+
+      - name: Upload Linux portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: NDISafe-Desk-${{ env.VERSION }}-linux-portable
+          path: NDISafe-Desk-${{ env.VERSION }}-linux-portable.tar.gz
+          retention-days: 30

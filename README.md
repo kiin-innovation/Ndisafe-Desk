@@ -234,11 +234,11 @@ Workflows in `.github/workflows/`:
 
 | Workflow | Triggers | Produces |
 |---|---|---|
-| `build.yml` | push to `ndisafe-desk`, manual | portable zip, self-extracting `NDISafe-Desk-1.4.9-windows-x86_64.exe`, `NDISafe-Desk-1.4.9-windows-x86_64.msi` |
+| `build.yml` | push to `ndisafe-desk`, manual | portable zip, self-extracting `NDISafe-Desk-1.4.9-windows-x86_64.exe`, `NDISafe-Desk-1.4.9-windows-x86_64.msi`, Linux portable `NDISafe-Desk-1.4.9-linux-portable.tar.gz` |
 | `docker-server.yml` | push to `ndisafe-desk` | `calvin207/ndisafedesk:latest` and `:1.1.16` on Docker Hub |
 | `bridge.yml` | used by the build | Flutter/Rust FFI bridge files |
 
-`build.yml` in detail: `generate-bridge` (Ubuntu) then `build-windows` (Windows 2022) which installs tooling, runs `cargo build --features flutter --lib --bins --release`, runs `flutter build windows --release`, assembles the portable bundle, builds the self-extracting installer (`libs/portable/generate.py`), builds the MSI (msi.sln), and uploads artifacts.
+`build.yml` in detail: `generate-bridge` (Ubuntu), then `build-windows` (Windows 2022) which installs tooling, runs `cargo build --features flutter --lib --bins --release`, runs `flutter build windows --release`, assembles the portable bundle, builds the self-extracting installer (`libs/portable/generate.py`), builds the MSI (msi.sln), and uploads artifacts. `build-linux` (Ubuntu 22.04) installs system deps + vcpkg (x64-linux, builds ffmpeg for `hwcodec`), runs `cargo build --features hwcodec,flutter,unix-file-copy-paste --lib --release`, runs `flutter build linux --release`, and tars `flutter/build/linux/x64/release/bundle/` into the portable tarball — extract it anywhere and run `./rustdesk` (the Linux binary keeps the upstream name).
 
 **Notes:**
 - The Docker workflow requires `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets; without them it fails.
