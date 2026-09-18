@@ -112,11 +112,11 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
   gtk_window_set_decorated(window, FALSE);
-  // try setting icon for rustdesk, which uses the system cache
+  // try setting icon for ndisafe-desk, which uses the system cache
   GtkIconTheme* theme = gtk_icon_theme_get_default();
   gint icons[4] = {256, 128, 64, 32};
   for (int i = 0; i < 4; i++) {
-    GdkPixbuf* icon = gtk_icon_theme_load_icon(theme, "rustdesk", icons[i], GTK_ICON_LOOKUP_NO_SVG, NULL);
+    GdkPixbuf* icon = gtk_icon_theme_load_icon(theme, "ndisafe-desk", icons[i], GTK_ICON_LOOKUP_NO_SVG, NULL);
     if (icon != nullptr) {
       gtk_window_set_icon(window, icon);
     }

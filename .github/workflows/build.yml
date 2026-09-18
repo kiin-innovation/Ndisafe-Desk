@@ -501,6 +501,8 @@ jobs:
 
       - name: Assemble portable tarball
         run: |
+          cp res/ndisafe-desk.desktop flutter/build/linux/x64/release/bundle/
+          cp res/icon.png flutter/build/linux/x64/release/bundle/ndisafe-desk.png
           tar -czf NDISafe-Desk-${{ env.VERSION }}-linux-portable.tar.gz \
             -C flutter/build/linux/x64/release/bundle .
           ls -la NDISafe-Desk-${{ env.VERSION }}-linux-portable.tar.gz

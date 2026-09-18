@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=NDISafe Desk
+GenericName=Remote Desktop
+Comment=Secure remote desktop for teams
+Exec=ndisafe-desk %u
+Icon=ndisafe-desk
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=Network;RemoteAccess;GTK;
+Keywords=remote-desktop;remote-control;teamviewer;rdp;vnc;
+StartupWMClass=ndisafe-desk
