@@ -425,6 +425,7 @@ jobs:
             libgstreamer-plugins-base1.0-dev \
             libgtk-3-dev \
             libpulse-dev \
+            librsvg2-bin \
             libunwind-dev \
             libva-dev \
             libxcb-randr0-dev \
@@ -502,7 +503,8 @@ jobs:
       - name: Assemble portable tarball
         run: |
           cp res/ndisafe-desk.desktop flutter/build/linux/x64/release/bundle/
-          cp res/ndisafe-desk.png flutter/build/linux/x64/release/bundle/ndisafe-desk.png
+          rsvg-convert -w 512 -h 512 res/ndisafe_logo.svg \
+            -o flutter/build/linux/x64/release/bundle/ndisafe-desk.png
           cp res/ndisafe_logo.svg flutter/build/linux/x64/release/bundle/ndisafe-desk.svg
           tar -czf NDISafe-Desk-${{ env.VERSION }}-linux-portable.tar.gz \
             -C flutter/build/linux/x64/release/bundle .
