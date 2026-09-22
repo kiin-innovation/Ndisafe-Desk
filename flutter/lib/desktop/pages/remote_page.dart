@@ -762,46 +762,16 @@ class _RemotePageState extends State<RemotePage>
                             ));
                       }
                     }(),
-              // Use Overlay to enable rebuild every time on menu button click.
               // Hide toolbar when relative mouse mode is active to prevent
               // cursor from escaping to toolbar area.
+              // NOTE: do NOT wrap the toolbar in an Overlay widget here.
+              // Overlay creates a compositing layer that renders as a white
+              // wash over the whole remote view on some machines. The
+              // surrounding Obx already rebuilds on menu button clicks.
               Obx(() => _ffi.inputModel.relativeMouseMode.value
                   ? const Offstage()
-                  : _ffi.ffiModel.pi.isSet.isTrue
-                      ? Overlay(initialEntries: [
-                          OverlayEntry(builder: remoteToolbar)
-                        ])
-                      : remoteToolbar(context)),
+                  : remoteToolbar(context)),
               _ffi.ffiModel.pi.isSet.isFalse ? emptyOverlay() : Offstage(),
-              // When the host masks the screen (e.g. while entering credentials),
-              // cover the whole session with an unmistakable fullscreen black
-              // layer. Positioned.fill guarantees real fullscreen coverage
-              // (a bare Container would shrink-wrap its child and leave video
-              // visible around it). Plain Stack child — no Overlay widget, so
-              // no white-canvas compositing issue.
-              Obx(() => _ffi.ffiModel.permissions['mask_credentials'] == true
-                  ? Positioned.fill(
-                      child: Container(
-                        color: Colors.black,
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.lock_outline_rounded,
-                                color: Colors.white, size: 48),
-                            const SizedBox(height: 16),
-                            Text(
-                              translate('Screen hidden by user'),
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 24),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : const Offstage()),
             ],
           ),
         ],

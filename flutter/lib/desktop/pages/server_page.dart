@@ -839,22 +839,6 @@ class _PrivilegeBoardState extends State<_PrivilegeBoard> {
                           translate('Enable privacy mode'),
                           canModify: canModifyPermission,
                         ),
-                      if (client.type_() == ClientType.remote)
-                        buildPermissionIcon(
-                          client.credentialsMask,
-                          Icons.lock_outline_rounded,
-                          (enabled) {
-                            bind.cmSwitchPermission(
-                                connId: client.id,
-                                name: "credentials_mask",
-                                enabled: enabled);
-                            setState(() {
-                              client.credentialsMask = enabled;
-                            });
-                          },
-                          translate('Mask screen'),
-                          canModify: canModifyPermission,
-                        ),
                     ],
             ),
           ),

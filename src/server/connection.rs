@@ -270,7 +270,6 @@ pub struct Connection {
     recording: bool,
     block_input: bool,
     privacy_mode: bool,
-    credentials_mask: bool,
     control_permissions: Option<ControlPermissions>,
     last_test_delay: Option<Instant>,
     network_delay: u32,
@@ -482,7 +481,6 @@ impl Connection {
             recording: Self::permission(keys::OPTION_ENABLE_RECORD_SESSION, &control_permissions),
             block_input: Self::permission(keys::OPTION_ENABLE_BLOCK_INPUT, &control_permissions),
             privacy_mode: Self::permission(keys::OPTION_ENABLE_PRIVACY_MODE, &control_permissions),
-            credentials_mask: false,
             control_permissions,
             last_test_delay: None,
             network_delay: 0,
@@ -771,9 +769,6 @@ impl Connection {
                                 }
                                 conn.privacy_mode = enabled;
                                 conn.send_permission(Permission::PrivacyMode, enabled).await;
-                            } else if &name == "credentials_mask" {
-                                conn.credentials_mask = enabled;
-                                conn.send_permission(Permission::MaskCredentials, enabled).await;
                             }
                         }
                         ipc::Data::RawMessage(bytes) => {
@@ -941,9 +936,6 @@ impl Connection {
                         if let Some(message::Union::VideoFrame(vf)) = &value.union {
                             video_service::notify_video_frame_fetched(vf.display as usize, id, Some(instant.into()));
                         }
-                    }
-                    if conn.credentials_mask {
-                        continue;
                     }
                     if let Err(err) = conn.stream.send(&value as &Message).await {
                         conn.on_close(&err.to_string(), false).await;
@@ -2189,7 +2181,6 @@ impl Connection {
             recording: self.recording,
             block_input: self.block_input,
             privacy_mode: self.privacy_mode,
-            credentials_mask: self.credentials_mask,
             from_switch: self.from_switch,
         });
     }
@@ -2959,10 +2950,6 @@ impl Connection {
                     if self.is_authed_view_camera_conn() {
                         return true;
                     }
-                    if self.credentials_mask {
-                        self.update_auto_disconnect_timer();
-                        return true;
-                    }
                     #[cfg(any(target_os = "android", target_os = "ios"))]
                     if let Err(e) = call_main_service_pointer_input("mouse", me.mask, me.x, me.y) {
                         log::debug!("call_main_service_pointer_input fail:{}", e);
@@ -3000,10 +2987,6 @@ impl Connection {
                 }
                 Some(message::Union::PointerDeviceEvent(pde)) => {
                     if self.is_authed_view_camera_conn() {
-                        return true;
-                    }
-                    if self.credentials_mask {
-                        self.update_auto_disconnect_timer();
                         return true;
                     }
                     #[cfg(any(target_os = "android", target_os = "ios"))]
@@ -3046,10 +3029,6 @@ impl Connection {
                 #[cfg(any(target_os = "android"))]
                 Some(message::Union::KeyEvent(mut me)) => {
                     if self.is_authed_view_camera_conn() {
-                        return true;
-                    }
-                    if self.credentials_mask {
-                        self.update_auto_disconnect_timer();
                         return true;
                     }
                     let key = match me.mode.enum_value() {
@@ -3105,10 +3084,6 @@ impl Connection {
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 Some(message::Union::KeyEvent(me)) => {
                     if self.is_authed_view_camera_conn() {
-                        return true;
-                    }
-                    if self.credentials_mask {
-                        self.update_auto_disconnect_timer();
                         return true;
                     }
                     if self.peer_keyboard_enabled() {
