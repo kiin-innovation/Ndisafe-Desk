@@ -16,6 +16,8 @@ cert.pfx
 *.bak
 *png
 *svg
+# NDISafe brand source assets (used to render the Linux icon at build time)
+!res/ndisafe_logo.svg
 *jpg
 sciter.dll
 **pdb
