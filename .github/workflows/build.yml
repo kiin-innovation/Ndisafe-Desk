@@ -516,3 +516,44 @@ jobs:
           name: NDISafe-Desk-${{ env.VERSION }}-linux-portable
           path: NDISafe-Desk-${{ env.VERSION }}-linux-portable.tar.gz
           retention-days: 30
+
+  build-appimage:
+    runs-on: ubuntu-22.04
+    needs: build-linux
+
+    steps:
+      - name: Download Linux portable
+        uses: actions/download-artifact@v4
+        with:
+          name: NDISafe-Desk-${{ env.VERSION }}-linux-portable
+          path: ./portable-tarball
+
+      - name: Build AppImage from portable bundle
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y desktop-file-utils
+          mkdir -p NDISafeDesk.AppDir
+          tar -xzf portable-tarball/NDISafe-Desk-${{ env.VERSION }}-linux-portable.tar.gz \
+            -C NDISafeDesk.AppDir
+          cd NDISafeDesk.AppDir
+          ln -sf ndisafe-desk AppRun
+          ln -sf ndisafe-desk.png .DirIcon
+          desktop-file-validate ndisafe-desk.desktop
+          ls -la
+          cd ..
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
+            -O appimagetool.AppImage
+          chmod +x appimagetool.AppImage
+          # runners have no FUSE; extract and run the inner AppRun instead
+          ./appimagetool.AppImage --appimage-extract
+          ./squashfs-root/AppRun NDISafeDesk.AppDir
+          ls *.AppImage
+          mv NDISafe*.AppImage NDISafe-Desk-${{ env.VERSION }}-x86_64.AppImage
+          ls -la NDISafe-Desk-${{ env.VERSION }}-x86_64.AppImage
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: NDISafe-Desk-${{ env.VERSION }}-linux-appimage
+          path: NDISafe-Desk-${{ env.VERSION }}-x86_64.AppImage
+          retention-days: 30
