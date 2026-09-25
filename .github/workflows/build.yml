@@ -592,11 +592,13 @@ jobs:
 
       - name: Assemble self-extracting installer
         run: |
+          # Syntax-check the stub alone: bash -n on the assembled file would
+          # parse the appended binary payload as shell and always fail.
+          bash -n res/linux-installer-head.sh
           cp res/linux-installer-head.sh NDISafe-Desk-${{ env.VERSION }}-linux-installer.sh
           cat portable-tarball/NDISafe-Desk-${{ env.VERSION }}-linux-portable.tar.gz \
             >> NDISafe-Desk-${{ env.VERSION }}-linux-installer.sh
           chmod +x NDISafe-Desk-${{ env.VERSION }}-linux-installer.sh
-          bash -n NDISafe-Desk-${{ env.VERSION }}-linux-installer.sh
           ls -la NDISafe-Desk-${{ env.VERSION }}-linux-installer.sh
 
       - name: Test-install into runner HOME
