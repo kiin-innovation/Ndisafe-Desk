@@ -2537,7 +2537,8 @@ connectMainDesktop(String id,
     bool? forceRelay,
     String? password,
     String? connToken,
-    bool? isSharedPassword}) async {
+    bool? isSharedPassword,
+    bool? autoVoiceCall}) async {
   if (isFileTransfer) {
     await rustDeskWinManager.newFileTransfer(id,
         password: password,
@@ -2549,7 +2550,8 @@ connectMainDesktop(String id,
         password: password,
         isSharedPassword: isSharedPassword,
         connToken: connToken,
-        forceRelay: forceRelay);
+        forceRelay: forceRelay,
+        autoVoiceCall: autoVoiceCall);
   } else if (isTcpTunneling || isRDP) {
     await rustDeskWinManager.newPortForward(id, isRDP,
         password: password,
@@ -2584,7 +2586,8 @@ connect(BuildContext context, String id,
     bool forceRelay = false,
     String? password,
     String? connToken,
-    bool? isSharedPassword}) async {
+    bool? isSharedPassword,
+    bool autoVoiceCall = false}) async {
   if (id == '') return;
   if (!isDesktop || desktopType == DesktopType.main) {
     try {
@@ -2617,6 +2620,7 @@ connect(BuildContext context, String id,
         password: password,
         isSharedPassword: isSharedPassword,
         forceRelay: forceRelay,
+        autoVoiceCall: autoVoiceCall,
       );
     } else {
       await rustDeskWinManager.call(WindowType.Main, kWindowConnect, {
@@ -2630,6 +2634,7 @@ connect(BuildContext context, String id,
         'isSharedPassword': isSharedPassword,
         'forceRelay': forceRelay,
         'connToken': connToken,
+        'autoVoiceCall': autoVoiceCall,
       });
     }
   } else {
@@ -2669,13 +2674,14 @@ connect(BuildContext context, String id,
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (BuildContext context) =>
+              builder: (BuildContext context) =>
                 desktop_view_camera.ViewCameraPage(
               key: ValueKey(id),
               id: id,
               toolbarState: ToolbarState(),
               password: password,
               isSharedPassword: isSharedPassword,
+              autoVoiceCall: autoVoiceCall,
             ),
           ),
         );
@@ -2687,7 +2693,8 @@ connect(BuildContext context, String id,
                 id: id,
                 password: password,
                 isSharedPassword: isSharedPassword,
-                forceRelay: forceRelay),
+                forceRelay: forceRelay,
+                autoVoiceCall: autoVoiceCall),
           ),
         );
       }

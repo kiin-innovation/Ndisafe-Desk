@@ -230,6 +230,7 @@ class RustDeskMultiWindowManager {
     bool? isRDP,
     bool? isSharedPassword,
     String? connToken,
+    bool? autoVoiceCall,
   }) async {
     var params = {
       "type": type.index,
@@ -237,6 +238,9 @@ class RustDeskMultiWindowManager {
       "password": password,
       "forceRelay": forceRelay
     };
+    if (autoVoiceCall != null) {
+      params['autoVoiceCall'] = autoVoiceCall;
+    }
     if (switchUuid != null) {
       params['switch_uuid'] = switchUuid;
     }
@@ -312,6 +316,7 @@ class RustDeskMultiWindowManager {
     String? switchUuid,
     bool? forceRelay,
     String? connToken,
+    bool? autoVoiceCall,
   }) async {
     return await newSession(
       WindowType.ViewCamera,
@@ -323,6 +328,7 @@ class RustDeskMultiWindowManager {
       switchUuid: switchUuid,
       isSharedPassword: isSharedPassword,
       connToken: connToken,
+      autoVoiceCall: autoVoiceCall,
     );
   }
 

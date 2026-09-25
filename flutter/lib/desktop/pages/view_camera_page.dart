@@ -43,6 +43,7 @@ class ViewCameraPage extends StatefulWidget {
     this.connToken,
     this.forceRelay,
     this.isSharedPassword,
+    this.autoVoiceCall,
   }) : super(key: key) {
     initSharedStates(id);
   }
@@ -57,6 +58,10 @@ class ViewCameraPage extends StatefulWidget {
   final bool? forceRelay;
   final bool? isSharedPassword;
   final String? connToken;
+  // When true, automatically request a voice call once the camera stream
+  // starts (first image). Used by the "Video call" entry point so one tap
+  // gives camera video + two-way audio.
+  final bool? autoVoiceCall;
   final SimpleWrapper<State<ViewCameraPage>?> _lastState = SimpleWrapper(null);
   final DesktopTabController? tabController;
 
@@ -91,6 +96,8 @@ class _ViewCameraPageState extends State<ViewCameraPage>
 
   SessionID get sessionId => _ffi.sessionId;
 
+  bool _autoVoiceCallSent = false;
+
   _ViewCameraPageState(String id) {
     _initStates(id);
   }
@@ -107,6 +114,12 @@ class _ViewCameraPageState extends State<ViewCameraPage>
           _ffi.ffiModel.pi.platform, _ffi.dialogManager);
       _ffi.recordingModel
           .updateStatus(bind.sessionGetIsRecording(sessionId: _ffi.sessionId));
+      // Video call: camera is streaming, now ring the peer for audio.
+      // Guarded so a reconnect or repeat callback never double-dials.
+      if ((widget.autoVoiceCall ?? false) && !_autoVoiceCallSent) {
+        _autoVoiceCallSent = true;
+        bind.sessionRequestVoiceCall(sessionId: _ffi.sessionId);
+      }
     });
     _ffi.start(
       widget.id,

@@ -102,6 +102,7 @@ class _ViewCameraTabPageState extends State<ViewCameraTabPage> {
           connToken: params['connToken'],
           forceRelay: params['forceRelay'],
           isSharedPassword: params['isSharedPassword'],
+          autoVoiceCall: params['autoVoiceCall'],
         ),
       ));
       _update_remote_count();
