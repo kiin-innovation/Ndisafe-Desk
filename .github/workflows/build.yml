@@ -360,9 +360,9 @@ jobs:
           CREATE_DMG="$(command -v create-dmg)"
           CREATE_DMG="$(readlink -f "$CREATE_DMG")"
           sed -i -e 's/MAXIMUM_UNMOUNTING_ATTEMPTS=3/MAXIMUM_UNMOUNTING_ATTEMPTS=7/' "$CREATE_DMG"
-          create-dmg --icon "RustDesk.app" 200 190 --hide-extension "RustDesk.app" --window-size 800 400 --app-drop-link 600 185 \
+          create-dmg --icon "Ndisafe-desk.app" 200 190 --hide-extension "Ndisafe-desk.app" --window-size 800 400 --app-drop-link 600 185 \
             ndisafe-desk-${{ env.VERSION }}-${{ matrix.job.arch }}.dmg \
-            ./flutter/build/macos/Build/Products/Release/RustDesk.app
+            ./flutter/build/macos/Build/Products/Release/Ndisafe-desk.app
 
       - name: Upload macOS app
         uses: actions/upload-artifact@v4
