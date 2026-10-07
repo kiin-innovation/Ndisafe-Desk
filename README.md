@@ -91,6 +91,7 @@ How a connection works:
 These are the intentional NDISafe changes over upstream RustDesk. When in doubt, blame one of these commits.
 
 - **Baked-in rendezvous + key** — `config.rs` points at the VPS and its real public key, so users do zero configuration.
+- **Video call** — one tap opens the peer's camera and auto-starts a voice call in that session (one-way video + two-way audio). Entry points: remote toolbar Chat menu and mobile session menu ("Video call"). Implemented purely in Flutter via an `autoVoiceCall` window param — no protocol changes.
 - **Portable installer + MSI** — CI produces a self-extracting installer and an `.msi`, not just a zip.
 - **Server image with a shell** — the hbbs/hbbr Docker image is Debian-based (not `FROM scratch`) so you can `docker exec -it hbbs bash` to debug.
 

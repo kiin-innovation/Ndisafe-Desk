@@ -42,13 +42,16 @@ class ViewCameraPage extends StatefulWidget {
       required this.id,
       this.password,
       this.isSharedPassword,
-      this.forceRelay})
+      this.forceRelay,
+      this.autoVoiceCall})
       : super(key: key);
 
   final String id;
   final String? password;
   final bool? isSharedPassword;
   final bool? forceRelay;
+  // Same as desktop: auto-request voice once the camera stream starts.
+  final bool? autoVoiceCall;
 
   @override
   State<ViewCameraPage> createState() => _ViewCameraPageState(id);
@@ -83,6 +86,8 @@ class _ViewCameraPageState extends State<ViewCameraPage>
     gFFI.dialogManager.loadMobileActionsOverlayVisible();
   }
 
+  bool _autoVoiceCallSent = false;
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +119,11 @@ class _ViewCameraPageState extends State<ViewCameraPage>
       }
       _disableAndroidSoftKeyboard(
           isKeyboardVisible: keyboardVisibilityController.isVisible);
+      // Video call: camera is streaming, now ring the peer for audio.
+      if ((widget.autoVoiceCall ?? false) && !_autoVoiceCallSent) {
+        _autoVoiceCallSent = true;
+        bind.sessionRequestVoiceCall(sessionId: gFFI.sessionId);
+      }
     });
     WidgetsBinding.instance.addObserver(this);
   }

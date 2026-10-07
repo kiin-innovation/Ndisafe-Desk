@@ -2820,7 +2820,7 @@ class _ChatMenuState extends State<_ChatMenu> {
           ffi: widget.ffi,
           color: _ToolbarTheme.blueColor,
           hoverColor: _ToolbarTheme.hoverBlueColor,
-          menuChildrenGetter: (_) => [textChat(), voiceCall()]);
+          menuChildrenGetter: (_) => [textChat(), voiceCall(), videoCall(context)]);
     }
   }
 
@@ -2861,6 +2861,19 @@ class _ChatMenuState extends State<_ChatMenu> {
       ffi: widget.ffi,
       onPressed: () =>
           bind.sessionRequestVoiceCall(sessionId: widget.ffi.sessionId),
+    );
+  }
+
+  videoCall(BuildContext context) {
+    return MenuButton(
+      child: Text(translate('Video call')),
+      ffi: widget.ffi,
+      onPressed: () => connect(
+        context,
+        widget.ffi.id,
+        isViewCamera: true,
+        autoVoiceCall: true,
+      ),
     );
   }
 }

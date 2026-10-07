@@ -837,6 +837,14 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     final menus = [
       makeTextMenu('Text chat', Icon(Icons.message, color: MyTheme.accent),
           () => onPressedTextChat(widget.id)),
+      makeTextMenu(
+          'Video call',
+          SvgPicture.asset(
+            'assets/call_wait.svg',
+            colorFilter: ColorFilter.mode(MyTheme.accent, BlendMode.srcIn),
+          ),
+          () => connect(context, widget.id,
+              isViewCamera: true, autoVoiceCall: true)),
       isInVoice
           ? makeTextMenu(
               'End voice call',
