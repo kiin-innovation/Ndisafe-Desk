@@ -17,6 +17,7 @@ import '../../models/model.dart';
 import '../../models/platform_model.dart';
 import '../../common/shared_state.dart';
 import '../../utils/image.dart';
+import '../../utils/video_call.dart';
 import '../widgets/remote_toolbar.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
@@ -96,7 +97,7 @@ class _ViewCameraPageState extends State<ViewCameraPage>
 
   SessionID get sessionId => _ffi.sessionId;
 
-  bool _autoVoiceCallSent = false;
+  final AutoVoiceCallGate _autoVoiceCallGate = AutoVoiceCallGate();
 
   _ViewCameraPageState(String id) {
     _initStates(id);
@@ -115,9 +116,7 @@ class _ViewCameraPageState extends State<ViewCameraPage>
       _ffi.recordingModel
           .updateStatus(bind.sessionGetIsRecording(sessionId: _ffi.sessionId));
       // Video call: camera is streaming, now ring the peer for audio.
-      // Guarded so a reconnect or repeat callback never double-dials.
-      if ((widget.autoVoiceCall ?? false) && !_autoVoiceCallSent) {
-        _autoVoiceCallSent = true;
+      if (_autoVoiceCallGate.shouldRequestVoiceCall(widget.autoVoiceCall)) {
         bind.sessionRequestVoiceCall(sessionId: _ffi.sessionId);
       }
     });

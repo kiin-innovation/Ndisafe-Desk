@@ -20,6 +20,7 @@ import '../../models/input_model.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
 import '../../utils/image.dart';
+import '../../utils/video_call.dart';
 
 final initText = '1' * 1024;
 
@@ -86,7 +87,7 @@ class _ViewCameraPageState extends State<ViewCameraPage>
     gFFI.dialogManager.loadMobileActionsOverlayVisible();
   }
 
-  bool _autoVoiceCallSent = false;
+  final AutoVoiceCallGate _autoVoiceCallGate = AutoVoiceCallGate();
 
   @override
   void initState() {
@@ -120,8 +121,7 @@ class _ViewCameraPageState extends State<ViewCameraPage>
       _disableAndroidSoftKeyboard(
           isKeyboardVisible: keyboardVisibilityController.isVisible);
       // Video call: camera is streaming, now ring the peer for audio.
-      if ((widget.autoVoiceCall ?? false) && !_autoVoiceCallSent) {
-        _autoVoiceCallSent = true;
+      if (_autoVoiceCallGate.shouldRequestVoiceCall(widget.autoVoiceCall)) {
         bind.sessionRequestVoiceCall(sessionId: gFFI.sessionId);
       }
     });
