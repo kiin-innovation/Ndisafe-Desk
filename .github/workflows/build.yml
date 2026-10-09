@@ -1,8 +1,11 @@
-name: NDISafe Desk - Windows Portable Build
+name: NDISafe Desk - Build & Release
 
 on:
   push:
     branches: ["ndisafe-desk"]
+    # Version tags like 1.5.0 (no leading "v") trigger full builds
+    # plus the publish-release job.
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
 
 env:
@@ -616,3 +619,37 @@ jobs:
           name: NDISafe-Desk-${{ env.VERSION }}-linux-installer
           path: NDISafe-Desk-${{ env.VERSION }}-linux-installer.sh
           retention-days: 30
+
+  # Publishes versioned binaries to GitHub Releases when a version tag
+  # like 1.5.0 is pushed (NOTE: no leading "v" — the in-app version
+  # comparator parses "v1" as 0 and the update check would break).
+  # The in-app updater downloads from these release assets, so asset
+  # names must stay exactly as the jobs above produce them.
+  publish-release:
+    runs-on: ubuntu-22.04
+    needs:
+      - build-windows
+      - build-macos
+      - build-linux
+      - build-appimage
+      - build-linux-installer
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: 'NDISafe-*'
+          merge-multiple: true
+          path: ./release-assets
+
+      - name: List release assets
+        run: |
+          ls -la ./release-assets
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./release-assets/*
+          generate_release_notes: true

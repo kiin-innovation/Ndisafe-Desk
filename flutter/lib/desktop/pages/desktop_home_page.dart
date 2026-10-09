@@ -427,14 +427,21 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   Widget buildHelpCards(String updateUrl) {
-    if (!bind.isCustomClient() &&
-        updateUrl.isNotEmpty &&
+    // This fork is always the NDISafe Desk custom client, for which the
+    // upstream card condition (!custom && uri contains 'rustdesk') never
+    // holds. Show the card for our brand whenever an update URL is known.
+    final isNdisafe = bind.isCustomClient();
+    if (updateUrl.isNotEmpty &&
         !isCardClosed &&
-        bind.mainUriPrefixSync().contains('rustdesk')) {
+        (isNdisafe ||
+            (!bind.isCustomClient() &&
+                bind.mainUriPrefixSync().contains('rustdesk')))) {
       final isToUpdate = (isWindows || isMacOS) && bind.mainIsInstalled();
       String btnText = isToUpdate ? 'Update' : 'Download';
       GestureTapCallback onPressed = () async {
-        final Uri url = Uri.parse('https://rustdesk.com/download');
+        final Uri url = Uri.parse(isNdisafe
+            ? 'https://github.com/kiin-innovation/Ndisafe-Desk/releases'
+            : 'https://rustdesk.com/download');
         await launchUrl(url);
       };
       if (isToUpdate) {
@@ -450,7 +457,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           closeButton: true,
           help: isToUpdate ? 'Changelog' : null,
           link: isToUpdate
-              ? 'https://github.com/rustdesk/rustdesk/releases/tag/${bind.mainGetNewVersion()}'
+              ? (isNdisafe
+                  ? updateUrl
+                  : 'https://github.com/rustdesk/rustdesk/releases/tag/${bind.mainGetNewVersion()}')
               : null);
     }
     if (systemError.isNotEmpty) {

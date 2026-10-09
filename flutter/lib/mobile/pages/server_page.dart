@@ -717,7 +717,7 @@ class ConnectionManager extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodyMedium,
                         ).marginOnly(bottom: 5),
                   client.authorized
-                      ? _buildDisconnectButton(client)
+                      ? _buildDisconnectButton(context, client)
                       : _buildNewConnectionHint(serverModel, client),
                   if (client.incomingVoiceCall && !client.inVoiceCall)
                     ..._buildNewVoiceCallHint(context, serverModel, client),
@@ -725,7 +725,7 @@ class ConnectionManager extends StatelessWidget {
             .toList());
   }
 
-  Widget _buildDisconnectButton(Client client) {
+  Widget _buildDisconnectButton(BuildContext context, Client client) {
     final disconnectButton = ElevatedButton.icon(
       style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.red)),
       icon: const Icon(Icons.close),
@@ -747,6 +747,18 @@ class ConnectionManager extends StatelessWidget {
           onPressed: () {
             bind.cmCloseVoiceCall(id: client.id);
             gFFI.invokeMethod("cancel_notification", client.id);
+          },
+        ),
+      );
+      // Two-way video: open the caller's camera. They get the standard
+      // incoming-session accept prompt, so both sides explicitly consent.
+      buttons.insert(
+        0,
+        ElevatedButton.icon(
+          icon: const Icon(Icons.videocam_rounded),
+          label: Text(translate("View camera")),
+          onPressed: () {
+            connect(context, client.peerId, isViewCamera: true);
           },
         ),
       );

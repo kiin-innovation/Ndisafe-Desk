@@ -878,6 +878,24 @@ class _CmControlPanel extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
+                child: buildButton(
+                  context,
+                  color: MyTheme.accent,
+                  onClick: () => connect(
+                    context,
+                    client.peerId,
+                    isViewCamera: true,
+                  ),
+                  icon: Icon(
+                    Icons.videocam_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                  text: translate('View camera'),
+                  textColor: Colors.white,
+                ),
+              ),
+              Expanded(
                 child: buildButton(context,
                     color: MyTheme.accent,
                     onClick: null, onTapDown: (details) async {

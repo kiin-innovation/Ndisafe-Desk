@@ -196,7 +196,21 @@ fn check_update(manually: bool) -> ResultType<()> {
         let download_url = update_url.replace("tag", "download");
         let version = download_url.split('/').last().unwrap_or_default();
         #[cfg(target_os = "windows")]
-        let download_url = if cfg!(feature = "flutter") {
+        let download_url = if crate::is_custom_client() {
+            // NDISafe Desk self-updates with its own self-extracting
+            // installer, whose CI asset name is
+            // NDISafe-Desk-<version>-windows-<arch>.exe.
+            let Some(arch) = crate::platform::windows::release_arch_suffix() else {
+                bail!(
+                    "Unsupported Windows release architecture: {}",
+                    std::env::consts::ARCH
+                );
+            };
+            format!(
+                "{}/NDISafe-Desk-{}-windows-{}.exe",
+                download_url, version, arch
+            )
+        } else if cfg!(feature = "flutter") {
             let Some(arch) = crate::platform::windows::release_arch_suffix() else {
                 bail!(
                     "Unsupported Windows release architecture: {}",
@@ -375,8 +389,14 @@ pub fn get_update_download_file_from_url(url: &str) -> Option<PathBuf> {
     let tag = segments.next()?;
     let filename = segments.next()?;
 
-    if owner != "rustdesk"
-        || repo != "rustdesk"
+    // Upstream only allows its own repo. NDISafe Desk additionally allows
+    // its own releases (compared case-insensitively; GitHub itself is
+    // case-insensitive for owner/repo).
+    let is_upstream = owner.eq_ignore_ascii_case("rustdesk")
+        && repo.eq_ignore_ascii_case("rustdesk");
+    let is_ndisafe = owner.eq_ignore_ascii_case("kiin-innovation")
+        && repo.eq_ignore_ascii_case("ndisafe-desk");
+    if (!is_upstream && !is_ndisafe)
         || releases != "releases"
         || download != "download"
         || tag.is_empty()

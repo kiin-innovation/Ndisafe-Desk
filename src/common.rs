@@ -942,12 +942,64 @@ pub fn is_modifier(evt: &KeyEvent) -> bool {
 
 pub fn check_software_update() {
     if is_custom_client() {
+        // NDISafe Desk checks its own GitHub releases instead of
+        // api.rustdesk.com. Same opt-out setting as upstream.
+        let opt = LocalConfig::get_option(keys::OPTION_ENABLE_CHECK_UPDATE);
+        if config::option2bool(keys::OPTION_ENABLE_CHECK_UPDATE, &opt) {
+            std::thread::spawn(move || {
+                allow_err!(do_check_software_update_ndisafe())
+            });
+        }
         return;
     }
     let opt = LocalConfig::get_option(keys::OPTION_ENABLE_CHECK_UPDATE);
     if config::option2bool(keys::OPTION_ENABLE_CHECK_UPDATE, &opt) {
         std::thread::spawn(move || allow_err!(do_check_software_update()));
     }
+}
+
+// Release tags must be plain versions like "1.5.0" (no leading "v"),
+// because get_version_number() parses "v1" as 0 and the comparison breaks.
+pub const NDISAFE_RELEASES_API_LATEST: &str =
+    "https://api.github.com/repos/kiin-innovation/Ndisafe-Desk/releases/latest";
+pub const NDISAFE_RELEASE_TAG_BASE: &str =
+    "https://github.com/kiin-innovation/Ndisafe-Desk/releases/tag";
+
+#[tokio::main(flavor = "current_thread")]
+pub async fn do_check_software_update_ndisafe() -> hbb_common::ResultType<()> {
+    let client = create_http_client_async(TlsType::Rustls, false);
+    let bytes = client
+        .get(NDISAFE_RELEASES_API_LATEST)
+        .header(reqwest::header::USER_AGENT, "NDISafe-Desk")
+        .header(reqwest::header::ACCEPT, "application/vnd.github+json")
+        .send()
+        .await?
+        .bytes()
+        .await?;
+    let tag = serde_json::from_slice::<serde_json::Value>(&bytes)
+        .ok()
+        .and_then(|v| v.get("tag_name")?.as_str().map(str::to_owned))
+        .unwrap_or_default();
+    if tag.is_empty() {
+        *SOFTWARE_UPDATE_URL.lock().unwrap() = "".to_string();
+        return Ok(());
+    }
+    if hbb_common::get_version_number(&tag) > hbb_common::get_version_number(crate::VERSION) {
+        let response_url = format!("{}/{}", NDISAFE_RELEASE_TAG_BASE, tag);
+        #[cfg(feature = "flutter")]
+        {
+            let mut m = HashMap::new();
+            m.insert("name", "check_software_update_finish");
+            m.insert("url", &response_url);
+            if let Ok(data) = serde_json::to_string(&m) {
+                let _ = crate::flutter::push_global_event(crate::flutter::APP_TYPE_MAIN, data);
+            }
+        }
+        *SOFTWARE_UPDATE_URL.lock().unwrap() = response_url;
+    } else {
+        *SOFTWARE_UPDATE_URL.lock().unwrap() = "".to_string();
+    }
+    Ok(())
 }
 
 // No need to check `danger_accept_invalid_cert` for now.

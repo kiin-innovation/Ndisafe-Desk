@@ -251,7 +251,32 @@ git commit --allow-empty -m "ci: trigger build"
 git push origin ndisafe-desk
 ```
 
-Or via GitHub UI: Actions tab → **NDISafe Desk – Windows Portable Build** → **Run workflow**.
+Or via GitHub UI: Actions tab → **NDISafe Desk – Build & Release** → **Run workflow**.
+
+---
+
+## Shipping a Release (in-app updates)
+
+Installed users get new versions through the in-app **Update** button (home screen card), which downloads from GitHub Releases — no manual re-download. How to ship:
+
+1. **Bump the version in three places** (they must all match):
+   - `src/version.rs` → `VERSION` (this is what the updater compares)
+   - `.github/workflows/build.yml` → `env.VERSION` (artifact file names)
+   - `flutter/pubspec.yaml` → `version:` (Flutter build metadata)
+2. **Commit and push** to `ndisafe-desk` as usual.
+3. **Tag and push the tag** — plain version, **no leading `v`** (the comparator parses `v1` as `0`, so a `v`-tag would never register as newer):
+   ```powershell
+   git tag 1.5.0
+   git push origin 1.5.0
+   ```
+4. CI builds everything from that tree and the `publish-release` job attaches all artifacts to the `1.5.0` GitHub Release (auto-generated notes).
+5. Installed clients check `https://api.github.com/repos/kiin-innovation/Ndisafe-Desk/releases/latest` on startup (respecting the check-for-updates setting), compare against their own version, and show **Update** when newer. Clicking it downloads `NDISafe-Desk-<version>-windows-x86_64.exe` (the self-extracting installer — the ideal update payload) with progress, then installs in place.
+
+Notes:
+- **First update is manual, always**: builds already in the wild (1.4.9 and earlier) predate the updater, so each machine needs one manual download of the first updater-enabled release. After that, the button works forever.
+- Asset file names must stay exactly as CI produces them — the updater constructs the download URL from the version + arch (`NDISafe-Desk-<version>-windows-x86_64.exe`).
+- Windows gets the full auto-install flow. Linux/macOS show correct download links; their one-click in-place update is a follow-up.
+- Auto background updates honor the existing "allow auto update" option; the Update button path works regardless when clicked.
 
 > The GitHub CLI (`gh`) is not authenticated on the dev machine, so CI status is checked via the Actions web UI, not terminal.
 
