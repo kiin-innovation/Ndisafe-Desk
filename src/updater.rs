@@ -206,10 +206,7 @@ fn check_update(manually: bool) -> ResultType<()> {
                     std::env::consts::ARCH
                 );
             };
-            format!(
-                "{}/NDISafe-Desk-{}-windows-{}.exe",
-                download_url, version, arch
-            )
+            ndisafe_update_download_url(&download_url, version, arch)
         } else if cfg!(feature = "flutter") {
             let Some(arch) = crate::platform::windows::release_arch_suffix() else {
                 bail!(
@@ -392,11 +389,7 @@ pub fn get_update_download_file_from_url(url: &str) -> Option<PathBuf> {
     // Upstream only allows its own repo. NDISafe Desk additionally allows
     // its own releases (compared case-insensitively; GitHub itself is
     // case-insensitive for owner/repo).
-    let is_upstream = owner.eq_ignore_ascii_case("rustdesk")
-        && repo.eq_ignore_ascii_case("rustdesk");
-    let is_ndisafe = owner.eq_ignore_ascii_case("kiin-innovation")
-        && repo.eq_ignore_ascii_case("ndisafe-desk");
-    if (!is_upstream && !is_ndisafe)
+    if !is_allowed_update_repo(owner, repo)
         || releases != "releases"
         || download != "download"
         || tag.is_empty()
@@ -427,6 +420,27 @@ fn is_plain_update_filename(filename: &str) -> bool {
 
 pub fn get_download_file_from_url(url: &str) -> Option<PathBuf> {
     get_update_download_file_from_url(url)
+}
+
+/// Which GitHub repos may serve in-app updates. Upstream allows only
+/// itself; this fork additionally allows its own releases. Pure function
+/// so the policy is unit-testable.
+pub fn is_allowed_update_repo(owner: &str, repo: &str) -> bool {
+    let is_upstream =
+        owner.eq_ignore_ascii_case("rustdesk") && repo.eq_ignore_ascii_case("rustdesk");
+    let is_ndisafe = owner.eq_ignore_ascii_case("kiin-innovation")
+        && repo.eq_ignore_ascii_case("ndisafe-desk");
+    is_upstream || is_ndisafe
+}
+
+/// Download URL for our self-extracting Windows installer asset, whose CI
+/// name is NDISafe-Desk-<version>-windows-<arch>.exe. Pure function so the
+/// exact asset naming is unit-testable (a mismatch here means updates 404).
+pub fn ndisafe_update_download_url(download_base: &str, version: &str, arch: &str) -> String {
+    format!(
+        "{}/NDISafe-Desk-{}-windows-{}.exe",
+        download_base, version, arch
+    )
 }
 
 /// Queries all active connections (remote, file-transfer, port-forward, camera, terminal)
@@ -676,7 +690,42 @@ pub fn check_update_as_root() -> ResultType<bool> {
 
 #[cfg(test)]
 mod tests {
-    use super::get_download_file_from_url;
+    use super::{get_download_file_from_url, is_allowed_update_repo, ndisafe_update_download_url};
+
+    #[test]
+    fn update_allows_our_releases_repo_case_insensitively() {
+        assert!(is_allowed_update_repo("kiin-innovation", "Ndisafe-Desk"));
+        assert!(is_allowed_update_repo("Kiin-Innovation", "ndisafe-desk"));
+        assert!(is_allowed_update_repo("rustdesk", "rustdesk"));
+        assert!(!is_allowed_update_repo("other", "project"));
+        assert!(!is_allowed_update_repo("kiin-innovation", "something-else"));
+        assert!(!is_allowed_update_repo("", ""));
+    }
+
+    #[test]
+    fn update_builds_exact_ci_asset_url() {
+        // Must match the artifact name produced by build.yml, or updates 404.
+        assert_eq!(
+            ndisafe_update_download_url(
+                "https://github.com/kiin-innovation/Ndisafe-Desk/releases/download/1.5.0",
+                "1.5.0",
+                "x86_64"
+            ),
+            "https://github.com/kiin-innovation/Ndisafe-Desk/releases/download/1.5.0/NDISafe-Desk-1.5.0-windows-x86_64.exe"
+        );
+    }
+
+    #[test]
+    fn update_accepts_our_release_asset_url_end_to_end() {
+        let file = get_download_file_from_url(
+            "https://github.com/kiin-innovation/Ndisafe-Desk/releases/download/1.5.0/NDISafe-Desk-1.5.0-windows-x86_64.exe",
+        )
+        .expect("our release asset URL");
+        assert_eq!(
+            file.file_name().and_then(|name| name.to_str()),
+            Some("NDISafe-Desk-1.5.0-windows-x86_64.exe")
+        );
+    }
 
     #[test]
     fn update_download_file_accepts_expected_github_asset_urls() {
