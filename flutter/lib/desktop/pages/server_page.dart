@@ -875,30 +875,36 @@ class _CmControlPanel extends StatelessWidget {
       children: [
         Offstage(
           offstage: !client.inVoiceCall,
-          child: Row(
+          child: Column(
             children: [
-              Expanded(
-                child: buildButton(
-                  context,
-                  color: MyTheme.accent,
-                  onClick: () => connect(
-                    context,
-                    client.peerId,
-                    isViewCamera: true,
+              Row(
+                children: [
+                  Expanded(
+                    child: buildButton(
+                      context,
+                      color: MyTheme.accent,
+                      onClick: () => connect(
+                        context,
+                        client.peerId,
+                        isViewCamera: true,
+                      ),
+                      icon: Icon(
+                        Icons.videocam_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      text: translate('View camera'),
+                      textColor: Colors.white,
+                    ),
                   ),
-                  icon: Icon(
-                    Icons.videocam_rounded,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                  text: translate('View camera'),
-                  textColor: Colors.white,
-                ),
+                ],
               ),
-              Expanded(
-                child: buildButton(context,
-                    color: MyTheme.accent,
-                    onClick: null, onTapDown: (details) async {
+              Row(
+                children: [
+                  Expanded(
+                    child: buildButton(context,
+                        color: MyTheme.accent,
+                        onClick: null, onTapDown: (details) async {
                   final devicesInfo =
                       await AudioInput.getDevicesInfo(true, true);
                   List<String> devices = devicesInfo['devices'] as List<String>;
@@ -974,6 +980,8 @@ class _CmControlPanel extends StatelessWidget {
                   textColor: Colors.white,
                 ),
               )
+            ],
+          ),
             ],
           ),
         ),

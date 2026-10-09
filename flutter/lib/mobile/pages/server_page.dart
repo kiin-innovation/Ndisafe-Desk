@@ -736,6 +736,7 @@ class ConnectionManager extends StatelessWidget {
       label: Text(translate("Disconnect")),
     );
     final buttons = [disconnectButton];
+    Widget? cameraButton;
     if (client.inVoiceCall) {
       buttons.insert(
         0,
@@ -752,9 +753,10 @@ class ConnectionManager extends StatelessWidget {
       );
       // Two-way video: open the caller's camera. They get the standard
       // incoming-session accept prompt, so both sides explicitly consent.
-      buttons.insert(
-        0,
-        ElevatedButton.icon(
+      // Full-width own row so labels never squeeze.
+      cameraButton = SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
           icon: const Icon(Icons.videocam_rounded),
           label: Text(translate("View camera")),
           onPressed: () {
@@ -764,17 +766,29 @@ class ConnectionManager extends StatelessWidget {
       );
     }
 
+    Widget actionRow;
     if (buttons.length == 1) {
-      return Container(
+      actionRow = Container(
         alignment: Alignment.centerRight,
         child: disconnectButton,
       );
     } else {
-      return Row(
+      actionRow = Row(
         children: buttons,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
       );
     }
+    if (cameraButton == null) {
+      return actionRow;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        cameraButton,
+        const SizedBox(height: 6),
+        actionRow,
+      ],
+    );
   }
 
   Widget _buildNewConnectionHint(ServerModel serverModel, Client client) {
