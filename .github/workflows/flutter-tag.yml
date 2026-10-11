@@ -13,6 +13,8 @@ jobs:
   run-flutter-tag-build:
     # This fork publishes stable updates through build.yml instead.
     if: github.repository != 'kiin-innovation/Ndisafe-Desk' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
     uses: ./.github/workflows/flutter-build.yml
     secrets: inherit
     with:
