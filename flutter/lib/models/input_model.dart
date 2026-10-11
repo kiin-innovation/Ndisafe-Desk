@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'dart:ui' as ui;
@@ -1439,14 +1438,10 @@ class InputModel {
   void waitLastFlingDone() {
     if (_fling) {
       _stopFling = true;
-    }
-    for (var i = 0; i < 5; i++) {
-      if (!_fling) {
-        break;
-      }
-      sleep(Duration(milliseconds: 10));
+      _fling = false;
     }
     _flingTimer?.cancel();
+    _flingTimer = null;
   }
 
   void onPointerPanZoomEnd(PointerPanZoomEndEvent e) {

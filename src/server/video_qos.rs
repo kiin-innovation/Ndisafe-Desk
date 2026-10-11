@@ -57,7 +57,7 @@ struct UserDelay {
 impl UserDelay {
     fn add_delay(&mut self, delay: u32) {
         self.rtt_calculator.update(delay);
-        if self.delay_history.len() > HISTORY_DELAY_LEN {
+        if self.delay_history.len() >= HISTORY_DELAY_LEN {
             self.delay_history.pop_front();
         }
         self.delay_history.push_back(delay);
@@ -71,11 +71,7 @@ impl UserDelay {
 
             // If RTT is available, subtract it from average delay to get actual network latency
             if let Some(rtt) = self.rtt_calculator.get_rtt() {
-                if avg_delay > rtt {
-                    avg_delay - rtt
-                } else {
-                    avg_delay
-                }
+                avg_delay.saturating_sub(rtt)
             } else {
                 avg_delay
             }
@@ -261,6 +257,7 @@ impl VideoQoS {
 
         let mut adjust_ratio = false;
         if let Some(user) = self.users.get_mut(&id) {
+            user.delay.response_delayed = false;
             let delay = delay.max(10);
             let old_avg_delay = user.delay.avg_delay();
             user.delay.add_delay(delay);
@@ -591,5 +588,118 @@ impl RttCalculator {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn qos_with_user(fps: u32) -> VideoQoS {
+        let mut qos = VideoQoS::default();
+        qos.users.insert(1, UserData::default());
+        qos.user_custom_fps(1, fps);
+        qos.new_user_instant = Instant::now() - Duration::from_secs(2);
+        qos
+    }
+
+    fn add_samples(qos: &mut VideoQoS, id: i32, delay: u32, count: usize) {
+        for _ in 0..count {
+            qos.user_network_delay(id, delay);
+        }
+    }
+
+    #[test]
+    fn delay_history_keeps_only_the_latest_samples() {
+        let mut delay = UserDelay::default();
+        delay.add_delay(900);
+        delay.add_delay(100);
+        delay.add_delay(100);
+        assert_eq!(delay.delay_history.len(), HISTORY_DELAY_LEN);
+        assert_eq!(delay.avg_delay(), 100);
+    }
+
+    #[test]
+    fn stable_distant_connections_recover_full_fps() {
+        for rtt in [40, 150, 250, 400, 800] {
+            let mut qos = qos_with_user(30);
+            add_samples(&mut qos, 1, rtt, 40);
+            for _ in 0..10 {
+                qos.adjust_ratio(true);
+            }
+            assert_eq!(qos.fps(), 30, "stable RTT {rtt} ms");
+            assert_eq!(qos.users[&1].delay.avg_delay(), 0);
+            assert_eq!(qos.ratio(), BR_BALANCED);
+        }
+    }
+
+    #[test]
+    fn rtt_baseline_tracks_changes_in_the_sample_window() {
+        let mut delay = UserDelay::default();
+        delay.add_delay(100);
+        for _ in 0..RttCalculator::WINDOW_SAMPLES {
+            delay.add_delay(500);
+        }
+        assert_eq!(delay.rtt_calculator.get_rtt(), Some(300));
+        delay.add_delay(200);
+        delay.add_delay(200);
+        assert_eq!(delay.rtt_calculator.get_rtt(), Some(150));
+        assert_eq!(delay.avg_delay(), 50);
+    }
+
+    #[test]
+    fn congestion_reduces_fps_and_quality_then_recovers() {
+        let mut qos = qos_with_user(30);
+        add_samples(&mut qos, 1, 200, 40);
+        for _ in 0..10 {
+            qos.adjust_ratio(true);
+        }
+        let initial_ratio = qos.ratio();
+        add_samples(&mut qos, 1, 600, 3);
+        qos.adjust_ratio(true);
+        assert!(qos.fps() < 10);
+        assert!(qos.ratio() < initial_ratio);
+        add_samples(&mut qos, 1, 200, 40);
+        for _ in 0..10 {
+            qos.adjust_ratio(true);
+        }
+        assert_eq!(qos.fps(), 30);
+        assert_eq!(qos.ratio(), initial_ratio);
+    }
+
+    #[test]
+    fn received_response_clears_timeout_without_another_timer_tick() {
+        let mut qos = qos_with_user(30);
+        add_samples(&mut qos, 1, 400, 40);
+        qos.user_delay_response_elapsed(1, 2500);
+        assert_eq!(qos.fps(), 2);
+        qos.user_network_delay(1, 400);
+        assert!(!qos.users[&1].delay.response_delayed);
+        add_samples(&mut qos, 1, 400, 40);
+        assert_eq!(qos.fps(), 30);
+    }
+
+    #[test]
+    fn distant_connections_respect_user_and_decoder_fps_limits() {
+        let mut qos = qos_with_user(24);
+        add_samples(&mut qos, 1, 400, 40);
+        assert_eq!(qos.fps(), 24);
+        qos.user_auto_adjust_fps(1, 12);
+        add_samples(&mut qos, 1, 400, 40);
+        assert_eq!(qos.fps(), 12);
+    }
+
+    #[test]
+    fn congested_viewer_still_limits_a_shared_video_stream() {
+        let mut qos = qos_with_user(30);
+        qos.users.insert(2, UserData::default());
+        for _ in 0..40 {
+            qos.user_network_delay(1, 400);
+            qos.user_network_delay(2, 100);
+        }
+        assert_eq!(qos.fps(), 30);
+        add_samples(&mut qos, 2, 500, 3);
+        qos.user_network_delay(1, 400);
+        assert!(qos.fps() < 10);
     }
 }

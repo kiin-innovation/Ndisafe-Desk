@@ -67,6 +67,7 @@ impl EncoderApi for VpxEncoder {
                 c.g_h = config.height;
                 c.g_timebase.num = 1;
                 c.g_timebase.den = 1000; // Output timestamp precision
+                c.g_lag_in_frames = 0;
                 c.rc_undershoot_pct = 95;
                 // When the data buffer falls below this percentage of fullness, a dropped frame is indicated. Set the threshold to zero (0) to disable this feature.
                 // In dynamic scenes, low bitrate gets low fps while high bitrate gets high fps.
@@ -595,3 +596,55 @@ impl Drop for Image {
 }
 
 unsafe impl Send for vpx_codec_ctx_t {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_realtime_frames(codec: VpxVideoCodecId, i444: bool) {
+        let mut encoder = VpxEncoder::new(
+            crate::codec::EncoderCfg::VPX(VpxEncoderConfig {
+                width: 64,
+                height: 64,
+                quality: 1.0,
+                codec,
+                keyframe_interval: None,
+            }),
+            i444,
+        )
+        .unwrap();
+        let mut decoder = VpxDecoder::new(VpxDecoderConfig { codec }).unwrap();
+        let fmt = encoder.yuvfmt();
+        let mut yuv = vec![128; fmt.v + fmt.stride[2] * fmt.h];
+        for index in 0..6 {
+            yuv[..fmt.u].fill(32 + index as u8 * 10);
+            let pts = index * 33;
+            let packets: Vec<_> = encoder
+                .encode(pts, &yuv, crate::STRIDE_ALIGN)
+                .unwrap()
+                .map(|frame| (frame.pts, frame.data.to_vec()))
+                .collect();
+            assert_eq!(packets.len(), 1, "{codec:?}, frame {index}");
+            assert_eq!(packets[0].0, pts);
+            let mut images = decoder.decode(&packets[0].1).unwrap();
+            // libvpx owns decoded images.
+            let image = std::mem::ManuallyDrop::new(images.next().unwrap());
+            assert_eq!((image.width(), image.height()), (64, 64));
+            assert!(images.next().is_none());
+        }
+        encoder.set_quality(0.8).unwrap();
+        let config = unsafe { &*encoder.ctx.config.enc };
+        assert_eq!(config.g_lag_in_frames, 0);
+    }
+
+    #[test]
+    fn vp8_outputs_each_frame_without_lookahead_or_flush() {
+        check_realtime_frames(VpxVideoCodecId::VP8, false);
+    }
+
+    #[test]
+    fn vp9_outputs_each_frame_without_lookahead_or_flush() {
+        check_realtime_frames(VpxVideoCodecId::VP9, false);
+        check_realtime_frames(VpxVideoCodecId::VP9, true);
+    }
+}
