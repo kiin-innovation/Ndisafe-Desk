@@ -103,6 +103,7 @@ class _ViewCameraTabPageState extends State<ViewCameraTabPage> {
           forceRelay: params['forceRelay'],
           isSharedPassword: params['isSharedPassword'],
           autoVoiceCall: params['autoVoiceCall'],
+          videoCallId: params['videoCallId'],
         ),
       ));
       _update_remote_count();
@@ -136,7 +137,9 @@ class _ViewCameraTabPageState extends State<ViewCameraTabPage> {
       body: DesktopTab(
         controller: tabController,
         onWindowCloseButton: handleWindowCloseButton,
-        tail: const AddButton(),
+        tail: widget.params['videoCallId'] == null
+            ? const AddButton()
+            : const SizedBox.shrink(),
         selectedBorderColor: MyTheme.accent,
         pageViewBuilder: (pageView) => pageView,
         labelGetter: DesktopTab.tablabelGetter,
@@ -262,7 +265,8 @@ class _ViewCameraTabPageState extends State<ViewCameraTabPage> {
       ),
     ]);
 
-    if (tabController.state.value.tabs.length > 1) {
+    if (tabController.state.value.tabs.length > 1 &&
+        viewCameraPage.videoCallId == null) {
       final splitAction = MenuEntryButton<String>(
         childBuilder: (TextStyle? style) => Text(
           translate('Move tab to new window'),
@@ -439,8 +443,20 @@ class _ViewCameraTabPageState extends State<ViewCameraTabPage> {
           connToken: args['connToken'],
           forceRelay: args['forceRelay'],
           isSharedPassword: args['isSharedPassword'],
+          autoVoiceCall: args['autoVoiceCall'],
+          videoCallId: args['videoCallId'],
         ),
       ));
+    } else if (call.method == 'closeVideoCall') {
+      final tabs = List<TabInfo>.of(tabController.state.value.tabs);
+      for (final tab in tabs) {
+        if ((tab.page as ViewCameraPage).videoCallId != null) {
+          // The CM has already ended the call. Do not hang up a later call
+          // on the same incoming connection while disposing this window.
+          (tab.page as ViewCameraPage).detachVideoCall();
+          tabController.closeBy(tab.key);
+        }
+      }
     } else if (call.method == kWindowDisableGrabKeyboard) {
       // ???
     } else if (call.method == "onDestroy") {

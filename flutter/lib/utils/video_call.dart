@@ -16,3 +16,38 @@ class AutoVoiceCallGate {
     return false;
   }
 }
+
+/// Owns only the return-camera windows created by explicitly accepted calls.
+class VideoCallCameras {
+  final Future<int> Function(int, String) open;
+  final Future<void> Function(int) close;
+  final Set<int> _accepted = {};
+  final Map<int, Future<int>> _opening = {};
+
+  VideoCallCameras({required this.open, required this.close});
+
+  void accept(int id, {required bool isCamera}) {
+    if (isCamera) _accepted.add(id);
+  }
+
+  Future<void> started(int id, String peerId) async {
+    if (!_accepted.remove(id) || _opening.containsKey(id)) return;
+    final opening = Future<int>.sync(() => open(id, peerId));
+    _opening[id] = opening;
+    try {
+      await opening;
+    } catch (_) {
+      if (identical(_opening[id], opening)) _opening.remove(id);
+      rethrow;
+    }
+  }
+
+  Future<void> ended(int id) async {
+    _accepted.remove(id);
+    final opening = _opening.remove(id);
+    if (opening == null) return;
+    // Window creation may still be in flight when the peer hangs up.
+    final windowId = await opening;
+    await close(windowId);
+  }
+}

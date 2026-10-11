@@ -317,7 +317,22 @@ class RustDeskMultiWindowManager {
     bool? forceRelay,
     String? connToken,
     bool? autoVoiceCall,
+    int? videoCallId,
   }) async {
+    if (videoCallId != null) {
+      final windowId = await newSessionWindow(
+        WindowType.ViewCamera,
+        remoteId,
+        jsonEncode({
+          'type': WindowType.ViewCamera.index,
+          'id': remoteId,
+          'videoCallId': videoCallId,
+        }),
+        _viewCameraWindows,
+        false,
+      );
+      return MultiWindowCallResult(windowId, null);
+    }
     return await newSession(
       WindowType.ViewCamera,
       kWindowEventNewViewCamera,
@@ -330,6 +345,14 @@ class RustDeskMultiWindowManager {
       connToken: connToken,
       autoVoiceCall: autoVoiceCall,
     );
+  }
+
+  Future<void> closeVideoCallCamera(int windowId) async {
+    try {
+      await DesktopMultiWindow.invokeMethod(windowId, 'closeVideoCall', null);
+    } catch (e) {
+      debugPrint('Failed to close video call in window $windowId: $e');
+    }
   }
 
   Future<MultiWindowCallResult> newPortForward(

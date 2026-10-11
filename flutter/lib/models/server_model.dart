@@ -7,6 +7,8 @@ import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/mobile/pages/settings_page.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
+import 'package:flutter_hbb/utils/multi_window_manager.dart';
+import 'package:flutter_hbb/utils/video_call.dart';
 import 'package:get/get.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -47,6 +49,21 @@ class ServerModel with ChangeNotifier {
   final tabController = DesktopTabController(tabType: DesktopTabType.cm);
 
   final List<Client> _clients = [];
+
+  final _videoCallCameras = VideoCallCameras(
+    open: (id, peerId) async {
+      final camera =
+          await rustDeskWinManager.newViewCamera(peerId, videoCallId: id);
+      return camera.windowId;
+    },
+    close: (id) => rustDeskWinManager.closeVideoCallCamera(id),
+  );
+
+  Future<void> _endVideoCall(int id) {
+    return _videoCallCameras.ended(id).catchError((Object e) {
+      debugPrint('Failed to close video call camera: $e');
+    });
+  }
 
   Timer? cmHiddenTimer;
 
@@ -625,6 +642,13 @@ class ServerModel with ChangeNotifier {
   }
 
   handleVoiceCall(Client client, bool accept) {
+    if (isDesktop) {
+      if (accept && client.authorized && client.incomingVoiceCall) {
+        _videoCallCameras.accept(client.id, isCamera: client.isViewCamera);
+      } else if (!accept) {
+        _endVideoCall(client.id);
+      }
+    }
     parent.target?.invokeMethod("cancel_notification", client.id);
     bind.cmHandleIncomingVoiceCall(id: client.id, accept: accept);
   }
@@ -715,6 +739,7 @@ class ServerModel with ChangeNotifier {
     try {
       final id = int.parse(evt['id'] as String);
       final close = (evt['close'] as String) == 'true';
+      if (isDesktop) _endVideoCall(id);
       if (_clients.any((c) => c.id == id)) {
         final index = _clients.indexWhere((client) => client.id == id);
         if (index >= 0) {
@@ -739,6 +764,7 @@ class ServerModel with ChangeNotifier {
   }
 
   Future<void> closeAll() async {
+    await Future.wait(_clients.map((client) => _endVideoCall(client.id)));
     await Future.wait(
         _clients.map((client) => bind.cmCloseConnection(connId: client.id)));
     _clients.clear();
@@ -765,6 +791,16 @@ class ServerModel with ChangeNotifier {
       if (index != -1) {
         _clients[index].inVoiceCall = client.inVoiceCall;
         _clients[index].incomingVoiceCall = client.incomingVoiceCall;
+        if (isDesktop) {
+          if (client.inVoiceCall) {
+            _videoCallCameras.started(client.id, client.peerId).catchError(
+                (Object e) {
+              debugPrint('Failed to open video call camera: $e');
+            });
+          } else if (!client.incomingVoiceCall) {
+            _endVideoCall(client.id);
+          }
+        }
         if (client.incomingVoiceCall) {
           if (isAndroid) {
             showVoiceCallDialog(client);

@@ -1,6 +1,7 @@
 // original cm window in Sciter version.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -14,6 +15,8 @@ import 'package:get/get.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:window_size/window_size.dart' as window_size;
+import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../common.dart';
@@ -44,6 +47,48 @@ class _DesktopServerPageState extends State<DesktopServerPage>
   @override
   void initState() {
     windowManager.addListener(this);
+    rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
+      if (call.method == kWindowEventShow) {
+        await rustDeskWinManager.registerActiveWindow(call.arguments['id']);
+      } else if (call.method == kWindowEventHide) {
+        await rustDeskWinManager.unregisterActiveWindow(call.arguments['id']);
+      } else if (call.method == kWindowMainWindowOnTop) {
+        windowOnTop(null);
+      } else if (call.method == kWindowGetScreenList) {
+        return jsonEncode(
+            (await window_size.getScreenList()).map((screen) => {
+              'frame': {
+                'l': screen.frame.left,
+                't': screen.frame.top,
+                'r': screen.frame.right,
+                'b': screen.frame.bottom,
+              },
+              'visibleFrame': {
+                'l': screen.visibleFrame.left,
+                't': screen.visibleFrame.top,
+                'r': screen.visibleFrame.right,
+                'b': screen.visibleFrame.bottom,
+              },
+              'scaleFactor': screen.scaleFactor,
+            }).toList());
+      } else if (call.method == kWindowEventRemoteWindowCoords) {
+        return jsonEncode(await rustDeskWinManager.getOtherRemoteWindowCoords(
+            int.parse(call.arguments)));
+      } else if (call.method == kWindowConnect) {
+        await connectMainDesktop(
+          call.arguments['id'],
+          isFileTransfer: call.arguments['isFileTransfer'],
+          isViewCamera: call.arguments['isViewCamera'],
+          isTerminal: call.arguments['isTerminal'],
+          isTcpTunneling: call.arguments['isTcpTunneling'],
+          isRDP: call.arguments['isRDP'],
+          password: call.arguments['password'],
+          forceRelay: call.arguments['forceRelay'],
+          connToken: call.arguments['connToken'],
+          autoVoiceCall: call.arguments['autoVoiceCall'],
+        );
+      }
+    });
     super.initState();
   }
 
@@ -994,7 +1039,9 @@ class _CmControlPanel extends StatelessWidget {
                     color: MyTheme.accent,
                     onClick: () => handleVoiceCall(true),
                     icon: Icon(
-                      Icons.call_rounded,
+                      client.isViewCamera
+                          ? Icons.videocam_rounded
+                          : Icons.call_rounded,
                       color: Colors.white,
                       size: 14,
                     ),
@@ -1229,7 +1276,7 @@ class _CmControlPanel extends StatelessWidget {
   }
 
   void handleVoiceCall(bool accept) {
-    bind.cmHandleIncomingVoiceCall(id: client.id, accept: accept);
+    gFFI.serverModel.handleVoiceCall(client, accept);
   }
 
   void closeVoiceCall() {

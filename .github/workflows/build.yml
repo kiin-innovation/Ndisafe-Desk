@@ -20,7 +20,7 @@ env:
   NASM_VERSION: "2.16.03"
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  VERSION: "1.4.9"
+  VERSION: "1.4.10"
 
 jobs:
   validate-release:
@@ -143,6 +143,12 @@ jobs:
         run: |
           cd flutter
           flutter build windows --release
+
+      - name: Test video call lifecycle
+        shell: bash
+        run: |
+          cd flutter
+          flutter test --no-pub test/video_call_test.dart
 
       - name: Assemble portable bundle
         shell: pwsh
@@ -634,9 +640,28 @@ jobs:
           path: NDISafe-Desk-${{ env.VERSION }}-linux-installer.sh
           retention-days: 30
 
-  # Publishes versioned binaries to GitHub Releases when a version tag
-  # like 1.5.0 is pushed (NOTE: no leading "v" — the in-app version
-  # comparator parses "v1" as 0 and the update check would break).
+  # Publish Windows updates without waiting for unrelated platform builds.
+  publish-windows-update:
+    runs-on: ubuntu-22.04
+    needs: build-windows
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: NDISafe-Desk-${{ env.VERSION }}-windows-installers
+          path: ./release-assets
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ./release-assets/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          make_latest: true
+
+  # Add the remaining assets to the same stable release once they build.
   # The in-app updater downloads from these release assets, so asset
   # names must stay exactly as the jobs above produce them.
   publish-release:
@@ -647,6 +672,7 @@ jobs:
       - build-linux
       - build-appimage
       - build-linux-installer
+      - publish-windows-update
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write

@@ -2912,7 +2912,7 @@ class _VoiceCallMenu extends StatelessWidget {
                 .toList(),
           );
         },
-        isCm: false,
+        isCm: ffi.chatModel.videoCallConnectionId != null,
         isVoiceCall: true,
       );
       return [
@@ -2920,7 +2920,7 @@ class _VoiceCallMenu extends StatelessWidget {
         Divider(),
         MenuButton(
           child: Text(translate('End call')),
-          onPressed: () => bind.sessionCloseVoiceCall(sessionId: ffi.sessionId),
+          onPressed: ffi.chatModel.closeVoiceCall,
           ffi: ffi,
         ),
       ];

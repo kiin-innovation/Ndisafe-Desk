@@ -67,6 +67,9 @@ class ChatModel with ChangeNotifier {
 
   Rx<VoiceCallStatus> get voiceCallStatus => _voiceCallStatus;
 
+  int? videoCallConnectionId;
+  VoidCallback? onVideoCallClosed;
+
   TextEditingController textController = TextEditingController();
   RxInt mobileUnreadSum = 0.obs;
   MessageKey? latestReceivedKey;
@@ -535,6 +538,7 @@ class ChatModel with ChangeNotifier {
 
   void onVoiceCallClosed(String reason) {
     _voiceCallStatus.value = VoiceCallStatus.notStarted;
+    onVideoCallClosed?.call();
     if (isAndroid) {
       // We can always invoke "on_voice_call_closed"
       // no matter if the `_voiceCallStatus` was `VoiceCallStatus.notStarted` or not.
@@ -549,6 +553,11 @@ class ChatModel with ChangeNotifier {
   }
 
   void closeVoiceCall() {
+    final connectionId = videoCallConnectionId;
+    if (connectionId != null) {
+      bind.cmCloseVoiceCall(id: connectionId);
+      return;
+    }
     bind.sessionCloseVoiceCall(sessionId: sessionId);
   }
 }

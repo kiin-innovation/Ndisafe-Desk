@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -45,6 +46,7 @@ class ViewCameraPage extends StatefulWidget {
     this.forceRelay,
     this.isSharedPassword,
     this.autoVoiceCall,
+    this.videoCallId,
   }) : super(key: key) {
     initSharedStates(id);
   }
@@ -63,10 +65,19 @@ class ViewCameraPage extends StatefulWidget {
   // starts (first image). Used by the "Video call" entry point so one tap
   // gives camera video + two-way audio.
   final bool? autoVoiceCall;
+  final int? videoCallId;
+  final SimpleWrapper<bool> _videoCallOwned = SimpleWrapper(true);
   final SimpleWrapper<State<ViewCameraPage>?> _lastState = SimpleWrapper(null);
   final DesktopTabController? tabController;
 
   FFI get ffi => (_lastState.value! as _ViewCameraPageState)._ffi;
+
+  void detachVideoCall() {
+    _videoCallOwned.value = false;
+    if (_lastState.value?.mounted == true) {
+      ffi.chatModel.videoCallConnectionId = null;
+    }
+  }
 
   @override
   State<ViewCameraPage> createState() {
@@ -109,6 +120,32 @@ class _ViewCameraPageState extends State<ViewCameraPage>
   void initState() {
     super.initState();
     _ffi = FFI(widget.sessionId);
+    _ffi.chatModel.videoCallConnectionId = widget.videoCallId;
+    if (widget.videoCallId != null) {
+      _ffi.chatModel.onVoiceCallStarted();
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          final clients = jsonDecode(await bind.cmGetClientsState()) as List;
+          if (clients.any((client) =>
+              client['id'] == widget.videoCallId &&
+              client['in_voice_call'] == true &&
+              client['disconnected'] != true)) {
+            return;
+          }
+        } catch (e) {
+          debugPrint('Failed to check video call state: $e');
+          bind.cmCloseVoiceCall(id: widget.videoCallId!);
+        }
+        if (mounted) widget.tabController?.closeBy(widget.id);
+      });
+    }
+    if (widget.autoVoiceCall == true || widget.videoCallId != null) {
+      _ffi.chatModel.onVideoCallClosed = () {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.tabController?.closeBy(widget.id);
+        });
+      };
+    }
     Get.put<FFI>(_ffi, tag: widget.id);
     _ffi.imageModel.addCallbackOnFirstImage((String peerId) {
       showKBLayoutTypeChooserIfNeeded(
@@ -229,6 +266,11 @@ class _ViewCameraPageState extends State<ViewCameraPage>
   @override
   Future<void> dispose() async {
     final closeSession = closeSessionOnDispose.remove(widget.id) ?? true;
+    _ffi.chatModel.onVideoCallClosed = null;
+    final videoCallId = _ffi.chatModel.videoCallConnectionId;
+    if (closeSession && widget._videoCallOwned.value && videoCallId != null) {
+      bind.cmCloseVoiceCall(id: videoCallId);
+    }
 
     // https://github.com/flutter/flutter/issues/64935
     super.dispose();
