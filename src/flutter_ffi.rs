@@ -2680,6 +2680,13 @@ pub fn main_get_common(key: String) -> String {
         } else if key.starts_with("download-file-") {
             let _version = key.replace("download-file-", "");
             #[cfg(target_os = "windows")]
+            if crate::is_custom_client() {
+                return match crate::platform::windows::release_arch_suffix() {
+                    Some(arch) => crate::update_release::windows_asset_name(&_version, arch),
+                    None => "error:unsupported".to_owned(),
+                };
+            }
+            #[cfg(target_os = "windows")]
             return match (
                 crate::platform::windows::is_msi_installed(),
                 crate::common::is_custom_client(),

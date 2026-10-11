@@ -31,6 +31,7 @@ pub struct DownloadData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_size: Option<u64>,
     pub downloaded_size: u64,
+    pub finished: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -206,7 +207,7 @@ async fn do_download(
             return Ok(is_all_downloaded);
         }
         resp = client.get(url).send() => {
-            response = resp?;
+            response = resp?.error_for_status()?;
         }
     }
 
@@ -240,6 +241,11 @@ async fn do_download(
                         }
                     }
                     Ok(None) => {
+                        if let Some(downloader) = DOWNLOADERS.lock().unwrap().get(id) {
+                            if downloader.total_size != Some(downloader.downloaded_size) {
+                                bail!("Downloaded file size does not match content length");
+                            }
+                        }
                         is_all_downloaded = true;
                         break;
                     },
@@ -288,6 +294,7 @@ pub fn get_download_data(id: &str) -> ResultType<DownloadData> {
             path,
             total_size,
             downloaded_size,
+            finished: downloader.finished,
             error,
         };
         Ok(download_data)

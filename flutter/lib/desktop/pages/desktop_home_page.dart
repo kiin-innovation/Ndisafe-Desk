@@ -436,7 +436,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         (isNdisafe ||
             (!bind.isCustomClient() &&
                 bind.mainUriPrefixSync().contains('rustdesk')))) {
-      final isToUpdate = (isWindows || isMacOS) && bind.mainIsInstalled();
+      final isToUpdate =
+          (isWindows || (isMacOS && !isNdisafe)) && bind.mainIsInstalled();
       String btnText = isToUpdate ? 'Update' : 'Download';
       GestureTapCallback onPressed = () async {
         final Uri url = Uri.parse(isNdisafe

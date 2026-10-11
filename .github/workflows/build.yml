@@ -3,9 +3,9 @@ name: NDISafe Desk - Build & Release
 on:
   push:
     branches: ["ndisafe-desk"]
-    # Version tags like 1.5.0 (no leading "v") trigger full builds
+    # Version tags like 1.5.0 or v1.5.0 trigger full builds
     # plus the publish-release job.
-    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+    tags: ["[0-9]+.[0-9]+.[0-9]+", "v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
 
 env:
@@ -23,11 +23,25 @@ env:
   VERSION: "1.4.9"
 
 jobs:
+  validate-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate release versions
+        run: python tools/check_release_version.py --version "$VERSION" --ref "$GITHUB_REF"
+      - name: Test update version comparisons and asset names
+        run: |
+          rustc --edition=2021 --test src/update_release.rs -o /tmp/ndisafe-update-tests
+          /tmp/ndisafe-update-tests
+
   generate-bridge:
     uses: ./.github/workflows/bridge.yml
 
   build-windows:
-    needs: generate-bridge
+    needs: [generate-bridge, validate-release]
     runs-on: windows-2022
 
     steps:
@@ -239,7 +253,7 @@ jobs:
   build-macos:
     name: ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
-    needs: generate-bridge
+    needs: [generate-bridge, validate-release]
     strategy:
       fail-fast: false
       matrix:
@@ -392,7 +406,7 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-22.04
-    needs: generate-bridge
+    needs: [generate-bridge, validate-release]
 
     steps:
       - name: Export GitHub Actions cache environment variables

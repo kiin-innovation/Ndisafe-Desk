@@ -140,12 +140,15 @@ fn start_auto_update_check() -> Sender<UpdateMsg> {
 
 fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
     std::thread::sleep(INITIAL_CHECK_DELAY);
-    if let Err(e) = check_update(false) {
-        log::error!("Error checking for updates: {}", e);
-    }
+    let mut check_interval = match check_update(false) {
+        Ok(()) => DUR_ONE_DAY,
+        Err(e) => {
+            log::error!("Error checking for updates: {}", e);
+            RETRY_INTERVAL
+        }
+    };
 
     let mut last_check_time = Instant::now();
-    let mut check_interval = DUR_ONE_DAY;
     loop {
         let recv_res = rx_msg.recv_timeout(check_interval);
         match &recv_res {
@@ -184,10 +187,7 @@ fn check_update(manually: bool) -> ResultType<()> {
     if !(manually || config::Config::get_bool_option(config::keys::OPTION_ALLOW_AUTO_UPDATE)) {
         return Ok(());
     }
-    if do_check_software_update().is_err() {
-        // ignore
-        return Ok(());
-    }
+    do_check_software_update()?;
 
     let update_url = crate::common::SOFTWARE_UPDATE_URL.lock().unwrap().clone();
     if update_url.is_empty() {
@@ -322,7 +322,7 @@ fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) {
                 };
                 let update_launched = match crate::platform::launch_privileged_process(
                     session_id,
-                    &format!("{} --update", p),
+                    &format!("\"{}\" --update", p),
                 ) {
                     Ok(h) => {
                         if h.is_null() {
@@ -438,8 +438,9 @@ pub fn is_allowed_update_repo(owner: &str, repo: &str) -> bool {
 /// exact asset naming is unit-testable (a mismatch here means updates 404).
 pub fn ndisafe_update_download_url(download_base: &str, version: &str, arch: &str) -> String {
     format!(
-        "{}/NDISafe-Desk-{}-windows-{}.exe",
-        download_base, version, arch
+        "{}/{}",
+        download_base,
+        crate::update_release::windows_asset_name(version, arch)
     )
 }
 
@@ -725,6 +726,20 @@ mod tests {
             file.file_name().and_then(|name| name.to_str()),
             Some("NDISafe-Desk-1.5.0-windows-x86_64.exe")
         );
+    }
+
+    #[test]
+    fn update_preserves_prefixed_tag_in_download_url() {
+        let download_url = ndisafe_update_download_url(
+            "https://github.com/kiin-innovation/Ndisafe-Desk/releases/download/v1.5.0",
+            "v1.5.0",
+            "x86_64",
+        );
+        assert_eq!(
+            download_url,
+            "https://github.com/kiin-innovation/Ndisafe-Desk/releases/download/v1.5.0/NDISafe-Desk-1.5.0-windows-x86_64.exe"
+        );
+        assert!(get_download_file_from_url(&download_url).is_some());
     }
 
     #[test]

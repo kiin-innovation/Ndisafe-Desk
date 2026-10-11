@@ -542,7 +542,7 @@ class _GeneralState extends State<_General> {
             ),
           ),
       ],
-      if (!isWeb && !bind.isCustomClient())
+      if (!isWeb)
         _OptionCheckBox(
           context,
           'Check for software update on startup',

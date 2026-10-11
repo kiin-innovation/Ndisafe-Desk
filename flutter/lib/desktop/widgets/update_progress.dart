@@ -74,6 +74,7 @@ class UpdateProgressState extends State<UpdateProgress> {
   Timer? _timer;
   int? _totalSize;
   int _downloadedSize = 0;
+  bool _downloadFinished = false;
   int _getDataFailedCount = 0;
   final String _eventKeyDownloadNewVersion = 'download-new-version';
   final String _eventKeyExtractUpdateDmg = 'extract-update-dmg';
@@ -186,6 +187,8 @@ class UpdateProgressState extends State<UpdateProgress> {
             }
           } else if (key == 'downloaded_size') {
             _downloadedSize = value as int;
+          } else if (key == 'finished') {
+            _downloadFinished = value == true;
           } else if (key == 'error') {
             if (value != null) {
               err = value.toString();
@@ -204,7 +207,9 @@ class UpdateProgressState extends State<UpdateProgress> {
     if (err != '') {
       _onError(err);
     } else {
-      if (_totalSize != null && _downloadedSize >= _totalSize!) {
+      if (_downloadFinished &&
+          _totalSize != null &&
+          _downloadedSize >= _totalSize!) {
         cancelQueryTimer();
         bind.mainSetCommon(
             key: 'remove-downloader', value: widget.downloadId.value);

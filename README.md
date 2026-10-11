@@ -260,23 +260,31 @@ Or via GitHub UI: Actions tab → **NDISafe Desk – Build & Release** → **Run
 Installed users get new versions through the in-app **Update** button (home screen card), which downloads from GitHub Releases — no manual re-download. How to ship:
 
 1. **Bump the version in three places** (they must all match):
-   - `src/version.rs` → `VERSION` (this is what the updater compares)
+   - `Cargo.toml` → `[package].version` (the Rust build generates `src/version.rs` from this)
    - `.github/workflows/build.yml` → `env.VERSION` (artifact file names)
    - `flutter/pubspec.yaml` → `version:` (Flutter build metadata)
 2. **Commit and push** to `ndisafe-desk` as usual.
-3. **Tag and push the tag** — plain version, **no leading `v`** (the comparator parses `v1` as `0`, so a `v`-tag would never register as newer):
+3. **Tag and push the tag** — `1.5.0` and `v1.5.0` are both supported:
    ```powershell
    git tag 1.5.0
    git push origin 1.5.0
    ```
-4. CI builds everything from that tree and the `publish-release` job attaches all artifacts to the `1.5.0` GitHub Release (auto-generated notes).
-5. Installed clients check `https://api.github.com/repos/kiin-innovation/Ndisafe-Desk/releases/latest` on startup (respecting the check-for-updates setting), compare against their own version, and show **Update** when newer. Clicking it downloads `NDISafe-Desk-<version>-windows-x86_64.exe` (the self-extracting installer — the ideal update payload) with progress, then installs in place.
+4. CI first validates that the Rust, Flutter, workflow, and tag versions match, then builds everything from that tree. The `publish-release` job attaches all artifacts to the GitHub Release (auto-generated notes). A branch push alone does not publish an update.
+5. Installed clients check `https://api.github.com/repos/kiin-innovation/Ndisafe-Desk/releases/latest` on startup and every 24 hours while open (respecting the check-for-updates setting), compare against their own version, and show **Update** when newer. Clicking it downloads `NDISafe-Desk-<version>-windows-x86_64.exe` with progress, waits for the complete file, then installs in place. The app and service restart with the new version; existing configuration stays in place. Windows may ask for administrator permission.
 
 Notes:
-- **First update is manual, always**: builds already in the wild (1.4.9 and earlier) predate the updater, so each machine needs one manual download of the first updater-enabled release. After that, the button works forever.
+- Older builds with the broken update check need one manual installation of a corrected release. Future releases can then use the in-app button.
 - Asset file names must stay exactly as CI produces them — the updater constructs the download URL from the version + arch (`NDISafe-Desk-<version>-windows-x86_64.exe`).
 - Windows gets the full auto-install flow. Linux/macOS show correct download links; their one-click in-place update is a follow-up.
 - Auto background updates honor the existing "allow auto update" option; the Update button path works regardless when clicked.
+
+Validate the release metadata locally with Python 3.11 or newer:
+
+```powershell
+python tools/check_release_version.py --version 1.4.9 --ref refs/tags/1.4.9
+```
+
+Before shipping, test on a spare Windows installation: install the corrected client, publish a newer stable release with its installer asset, click **Update**, and confirm the new version, device ID, saved peers, password, and service survive the restart. Equal or older releases must not show an update.
 
 > The GitHub CLI (`gh`) is not authenticated on the dev machine, so CI status is checked via the Actions web UI, not terminal.
 

@@ -4076,20 +4076,23 @@ void earlyAssert() {
   assert('\1' == '1');
 }
 
+Timer? _softwareUpdateTimer;
+
 void checkUpdate() {
   if (!isWeb) {
-    if (!bind.isCustomClient()) {
-      platformFFI.registerEventHandler(
-          kCheckSoftwareUpdateFinish, kCheckSoftwareUpdateFinish,
-          (Map<String, dynamic> evt) async {
-        if (evt['url'] is String) {
-          stateGlobal.updateUrl.value = evt['url'];
-        }
-      });
-      Timer(const Duration(seconds: 1), () async {
-        bind.mainGetSoftwareUpdateUrl();
-      });
-    }
+    platformFFI.registerEventHandler(
+        kCheckSoftwareUpdateFinish, kCheckSoftwareUpdateFinish,
+        (Map<String, dynamic> evt) async {
+      if (evt['url'] is String) {
+        stateGlobal.updateUrl.value = evt['url'];
+      }
+    }, replace: true);
+    Timer(const Duration(seconds: 1), () {
+      bind.mainGetSoftwareUpdateUrl();
+    });
+    _softwareUpdateTimer ??= Timer.periodic(const Duration(hours: 24), (_) {
+      bind.mainGetSoftwareUpdateUrl();
+    });
   }
 }
 
