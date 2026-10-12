@@ -2681,8 +2681,21 @@ pub fn main_get_common(key: String) -> String {
             let _version = key.replace("download-file-", "");
             #[cfg(target_os = "windows")]
             if crate::is_custom_client() {
+                let use_msi = if !crate::platform::is_installed() {
+                    true
+                } else {
+                    match crate::platform::windows::is_msi_installed() {
+                        Ok(value) => value,
+                        Err(e) => {
+                            log::error!("Failed to check the update installer type: {}", e);
+                            return "error:update-failed-check-msi-tip".to_owned();
+                        }
+                    }
+                };
                 return match crate::platform::windows::release_arch_suffix() {
-                    Some(arch) => crate::update_release::windows_asset_name(&_version, arch),
+                    Some(arch) => crate::update_release::windows_update_asset_name(
+                        &_version, arch, use_msi,
+                    ),
                     None => "error:unsupported".to_owned(),
                 };
             }
@@ -2790,27 +2803,28 @@ pub fn main_set_common(_key: String, _value: String) {
                 serde_json::ser::to_string(&data).unwrap_or("".to_owned()),
             );
         } else if _key == "update-me" {
-            if let Some(new_version_file) = get_download_file_from_url(&_value) {
-                log::debug!(
-                    "New version file is downloaded, update begin, {:?}",
-                    new_version_file.to_str()
-                );
-                if let Some(f) = new_version_file.to_str() {
-                    // 1.4.0 does not support "--update"
-                    // But we can assume that the new version supports it.
-
-                    #[cfg(any(target_os = "windows", target_os = "macos"))]
-                    match crate::platform::update_to(f) {
-                        Ok(_) => {
-                            log::info!("Update process is launched successfully!");
-                        }
-                        Err(e) => {
-                            log::error!("Failed to update to new version, {}", e);
-                            fs::remove_file(f).ok();
+            std::thread::spawn(move || {
+                if let Some(new_version_file) = get_download_file_from_url(&_value) {
+                    log::debug!(
+                        "New version file is downloaded, update begin, {:?}",
+                        new_version_file.to_str()
+                    );
+                    if let Some(f) = new_version_file.to_str() {
+                        match crate::platform::update_to(f) {
+                            Ok(_) => log::info!("Update process is launched successfully!"),
+                            Err(e) => {
+                                log::error!("Failed to update to new version, {}", e);
+                                let event = serde_json::json!({
+                                    "name": "update-install-error",
+                                    "error": e.to_string(),
+                                });
+                                flutter::push_global_event(flutter::APP_TYPE_MAIN, event.to_string());
+                            }
                         }
                     }
                 }
-            }
+            });
+            return;
         } else if _key == "extract-update-dmg" {
             #[cfg(target_os = "macos")]
             {

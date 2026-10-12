@@ -8,23 +8,49 @@ import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 final _isExtracting = false.obs;
+bool _updateInProgress = false;
 
-void handleUpdate(String releasePageUrl) {
+Future<void> handleUpdate(String releasePageUrl) async {
+  if (_updateInProgress) return;
+  _updateInProgress = true;
+  if (isWindows && bind.isCustomClient() && !bind.mainIsInstalled()) {
+    final confirmed = await gFFI.dialogManager.show<bool>(
+      (setState, close, context) => CustomAlertDialog(
+        title: Text(translate('Install')),
+        content: Text(translate('install_tip')),
+        actions: [
+          dialogButton('Cancel', onPressed: () => close(false), isOutline: true),
+          dialogButton('Install', onPressed: () => close(true)),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      _updateInProgress = false;
+      return;
+    }
+  }
   _isExtracting.value = false;
   String downloadUrl = releasePageUrl.replaceAll('tag', 'download');
   String version = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
   final String downloadFile =
       bind.mainGetCommonSync(key: 'download-file-$version');
   if (downloadFile.startsWith('error:')) {
+    _updateInProgress = false;
     final error = downloadFile.replaceFirst('error:', '');
     msgBox(gFFI.sessionId, 'custom-nocancel-nook-hasclose', 'Error', error,
-        releasePageUrl, gFFI.dialogManager);
+        bind.isCustomClient() ? '' : releasePageUrl, gFFI.dialogManager);
     return;
   }
   downloadUrl = '$downloadUrl/$downloadFile';
+  platformFFI.registerEventHandler('update-install-error', 'update-install-error',
+      (Map<String, dynamic> evt) async {
+    _updateInProgress = false;
+    msgBox(gFFI.sessionId, 'custom-nocancel-nook-hasclose', 'Error',
+        evt['error']?.toString() ?? 'Failed', '', gFFI.dialogManager);
+  }, replace: true);
 
-  SimpleWrapper downloadId = SimpleWrapper('');
-  SimpleWrapper<VoidCallback> onCanceled = SimpleWrapper(() {});
+  SimpleWrapper downloadId = SimpleWrapper(downloadUrl);
+  SimpleWrapper<Future<void> Function()> onCanceled = SimpleWrapper(() async {});
   gFFI.dialogManager.dismissAll();
   gFFI.dialogManager.show((setState, close, context) {
     return CustomAlertDialog(
@@ -37,7 +63,7 @@ void handleUpdate(String releasePageUrl) {
                 .paddingOnly(top: 12),
         actions: [
           if (_isExtracting.isFalse) dialogButton(translate('Cancel'), onPressed: () async {
-            onCanceled.value();
+            await onCanceled.value();
             await bind.mainSetCommon(
                 key: 'cancel-downloader', value: downloadId.value);
             // Wait for the downloader to be removed.
@@ -51,6 +77,7 @@ void handleUpdate(String releasePageUrl) {
               }
             }
             close();
+            _updateInProgress = false;
           }, isOutline: true),
         ]);
   });
@@ -75,6 +102,7 @@ class UpdateProgressState extends State<UpdateProgress> {
   int? _totalSize;
   int _downloadedSize = 0;
   bool _downloadFinished = false;
+  bool _canceled = false;
   int _getDataFailedCount = 0;
   final String _eventKeyDownloadNewVersion = 'download-new-version';
   final String _eventKeyExtractUpdateDmg = 'extract-update-dmg';
@@ -82,13 +110,21 @@ class UpdateProgressState extends State<UpdateProgress> {
   @override
   void initState() {
     super.initState();
-    widget.onCanceled.value = () {
-      cancelQueryTimer();
-    };
     platformFFI.registerEventHandler(_eventKeyDownloadNewVersion,
         _eventKeyDownloadNewVersion, handleDownloadNewVersion,
         replace: true);
-    bind.mainSetCommon(key: 'download-new-version', value: widget.downloadUrl);
+    final downloadStarted = bind.mainSetCommon(
+        key: 'download-new-version', value: widget.downloadUrl);
+    widget.onCanceled.value = () async {
+      _canceled = true;
+      cancelQueryTimer();
+      await downloadStarted;
+    };
+    downloadStarted.then((_) {
+      if (!mounted && !_downloadFinished) {
+        bind.mainSetCommon(key: 'cancel-downloader', value: widget.downloadUrl);
+      }
+    });
     if (isMacOS) {
       platformFFI.registerEventHandler(_eventKeyExtractUpdateDmg,
           _eventKeyExtractUpdateDmg, handleExtractUpdateDmg,
@@ -99,6 +135,13 @@ class UpdateProgressState extends State<UpdateProgress> {
   @override
   void dispose() {
     cancelQueryTimer();
+    if (!_downloadFinished) {
+      _canceled = true;
+      _updateInProgress = false;
+      if (widget.downloadId.value.isNotEmpty) {
+        bind.mainSetCommon(key: 'cancel-downloader', value: widget.downloadId.value);
+      }
+    }
     platformFFI.unregisterEventHandler(
         _eventKeyDownloadNewVersion, _eventKeyDownloadNewVersion);
     if (isMacOS) {
@@ -114,6 +157,7 @@ class UpdateProgressState extends State<UpdateProgress> {
   }
 
   Future<void> handleDownloadNewVersion(Map<String, dynamic> evt) async {
+    if (_canceled) return;
     if (evt.containsKey('id')) {
       widget.downloadId.value = evt['id'] as String;
       _timer = Timer.periodic(const Duration(milliseconds: 300), (timer) {
@@ -132,13 +176,16 @@ class UpdateProgressState extends State<UpdateProgress> {
   // `isExtractDmg` is true when handling extract-update-dmg event.
   // It's a rare case that the dmg file is corrupted and cannot be extracted.
   void _onError(String error, {bool isExtractDmg = false}) {
+    _updateInProgress = false;
     cancelQueryTimer();
 
     debugPrint(
         '${isExtractDmg ? "Extract" : "Download"} new version error: $error');
     final msgBoxType = 'custom-nocancel-nook-hasclose';
     final msgBoxTitle = 'Error';
-    final msgBoxText = 'download-new-version-failed-tip';
+    final msgBoxText = bind.isCustomClient()
+        ? 'Failed'
+        : 'download-new-version-failed-tip';
     final dialogManager = gFFI.dialogManager;
 
     close() {
@@ -156,7 +203,7 @@ class UpdateProgressState extends State<UpdateProgress> {
     }
 
     final List<Widget> buttons = [
-      dialogButton('Download', onPressed: jumplink),
+      if (!bind.isCustomClient()) dialogButton('Download', onPressed: jumplink),
       if (!isExtractDmg) dialogButton('Retry', onPressed: retry),
       dialogButton('Close', onPressed: close),
     ];
@@ -165,7 +212,8 @@ class UpdateProgressState extends State<UpdateProgress> {
       (setState, close, context) => CustomAlertDialog(
         title: null,
         content: SelectionArea(
-            child: msgboxContent(msgBoxType, msgBoxTitle, msgBoxText)),
+            child: msgboxContent(msgBoxType, msgBoxTitle,
+                '${translate(msgBoxText)}\n\n$error')),
         actions: buttons,
       ),
       tag: '$msgBoxType-$msgBoxTitle-$msgBoxTitle',

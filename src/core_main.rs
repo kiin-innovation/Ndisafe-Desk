@@ -34,6 +34,8 @@ pub fn core_main() -> Option<Vec<String>> {
     }
     crate::load_custom_client();
     #[cfg(windows)]
+    crate::platform::windows::ndisafe_update::init_auto_update_defaults();
+    #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {
         // return None to terminate the process
         return None;
@@ -420,6 +422,16 @@ pub fn core_main() -> Option<Vec<String>> {
             }
             return None;
         } else if args[0] == "--import-config" {
+            #[cfg(windows)]
+            if args.len() == 3 && args[2] == "--for-install" {
+                if let Err(error) =
+                    crate::platform::windows::ndisafe_update::import_config_for_install(&args[1])
+                {
+                    log::error!("Failed to import the portable configuration: {error}");
+                    std::process::exit(1);
+                }
+                return None;
+            }
             if args.len() == 2 {
                 let filepath;
                 let path = std::path::Path::new(&args[1]);

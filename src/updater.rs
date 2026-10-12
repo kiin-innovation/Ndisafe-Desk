@@ -176,6 +176,10 @@ fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {
 }
 
 fn check_update(manually: bool) -> ResultType<()> {
+    #[cfg(target_os = "windows")]
+    if !has_no_active_conns() {
+        bail!("Active connections, deferring update");
+    }
     // On macOS, auto-update is handled by check_update_as_root() in the service process.
     // The shared check_update() path is only used for manual update checks from the GUI.
     #[cfg(target_os = "macos")]
@@ -183,7 +187,7 @@ fn check_update(manually: bool) -> ResultType<()> {
         return Ok(());
     }
     #[cfg(target_os = "windows")]
-    let update_msi = crate::platform::is_msi_installed()? && !crate::is_custom_client();
+    let update_msi = crate::platform::is_msi_installed()?;
     if !(manually || config::Config::get_bool_option(config::keys::OPTION_ALLOW_AUTO_UPDATE)) {
         return Ok(());
     }
@@ -197,16 +201,17 @@ fn check_update(manually: bool) -> ResultType<()> {
         let version = download_url.split('/').last().unwrap_or_default();
         #[cfg(target_os = "windows")]
         let download_url = if crate::is_custom_client() {
-            // NDISafe Desk self-updates with its own self-extracting
-            // installer, whose CI asset name is
-            // NDISafe-Desk-<version>-windows-<arch>.exe.
             let Some(arch) = crate::platform::windows::release_arch_suffix() else {
                 bail!(
                     "Unsupported Windows release architecture: {}",
                     std::env::consts::ARCH
                 );
             };
-            ndisafe_update_download_url(&download_url, version, arch)
+            format!(
+                "{}/{}",
+                download_url,
+                crate::update_release::windows_update_asset_name(version, arch, update_msi)
+            )
         } else if cfg!(feature = "flutter") {
             let Some(arch) = crate::platform::windows::release_arch_suffix() else {
                 bail!(
@@ -269,14 +274,16 @@ fn check_update(manually: bool) -> ResultType<()> {
         // before the download, but not empty after the download.
         if has_no_active_conns() {
             #[cfg(target_os = "windows")]
-            update_new_version(update_msi, &version, &file_path);
+            update_new_version(update_msi, &version, &file_path)?;
+        } else {
+            bail!("A connection started during download, deferring update");
         }
     }
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
-fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) {
+fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) -> ResultType<()> {
     log::debug!(
         "New version is downloaded, update begin, update msi: {update_msi}, version: {version}, file: {:?}",
         file_path.to_str()
@@ -294,7 +301,7 @@ fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) {
                             version,
                             e
                         );
-                        std::fs::remove_file(&file_path).ok();
+                        return Err(e);
                     }
                 }
             } else {
@@ -309,7 +316,7 @@ fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) {
                             e
                         );
                         std::fs::remove_file(&file_path).ok();
-                        return;
+                        return Err(e);
                     }
                     Some(custom_client_staging_dir)
                 } else {
@@ -345,6 +352,7 @@ fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) {
                         ));
                     }
                     std::fs::remove_file(&file_path).ok();
+                    bail!("Failed to launch the new version: {version}");
                 }
             }
         } else {
@@ -352,7 +360,7 @@ fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) {
                 "Failed to get the current process session id, Error {}",
                 std::io::Error::last_os_error()
             );
-            std::fs::remove_file(&file_path).ok();
+            bail!("Failed to get the update process session ID");
         }
     } else {
         // unreachable!()
@@ -360,7 +368,9 @@ fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) {
             "Failed to convert the file path to string: {}",
             file_path.display()
         );
+        bail!("Failed to convert the update path to Unicode");
     }
+    Ok(())
 }
 
 pub fn get_update_download_file_from_url(url: &str) -> Option<PathBuf> {
@@ -772,5 +782,13 @@ mod tests {
         ] {
             assert!(get_download_file_from_url(url).is_none(), "{url}");
         }
+    }
+
+    #[test]
+    #[cfg(any(not(target_os = "windows"), feature = "flutter"))]
+    fn active_outgoing_sessions_prevent_automatic_installation() {
+        super::update_controlling_session_count(1);
+        assert!(!super::has_no_active_conns());
+        super::update_controlling_session_count(0);
     }
 }

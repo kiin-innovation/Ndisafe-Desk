@@ -101,6 +101,7 @@ mod acl;
 mod installer_handoff;
 mod installer_shell;
 mod msi_registry;
+pub mod ndisafe_update;
 pub(crate) use acl::current_process_user_sid_string;
 pub use acl::{
     set_path_permission, set_path_permission_for_portable_service_shmem_dir,
@@ -556,7 +557,7 @@ fn service_main(arguments: Vec<OsString>) {
 
 pub fn start_os_service() {
     if let Err(e) =
-        windows_service::service_dispatcher::start(crate::get_app_name(), ffi_service_main)
+        windows_service::service_dispatcher::start(ndisafe_update::service_name(), ffi_service_main)
     {
         log::error!("start_service failed: {}", e);
     }
@@ -677,7 +678,8 @@ async fn run_service(_arguments: Vec<OsString>) -> ResultType<()> {
     };
 
     // Register system service event handler
-    let status_handle = service_control_handler::register(crate::get_app_name(), event_handler)?;
+    let status_handle =
+        service_control_handler::register(ndisafe_update::service_name(), event_handler)?;
 
     let next_status = ServiceStatus {
         // Should match the one from system service registry
@@ -1318,6 +1320,9 @@ fn get_valid_subkey() -> String {
     if !get_reg_of(&subkey, "InstallLocation").is_empty() {
         return subkey;
     }
+    if let Some(subkey) = ndisafe_update::install_subkey() {
+        return subkey;
+    }
     let subkey = get_subkey(IS1, false);
     if !get_reg_of(&subkey, "InstallLocation").is_empty() {
         return subkey;
@@ -1451,6 +1456,7 @@ pub fn check_update_broker_process() -> ResultType<()> {
 }
 
 fn get_install_info_with_subkey(subkey: String) -> (String, String, String, String) {
+    let install_app_name = ndisafe_update::install_app_name(&subkey);
     let mut path = get_reg_of(&subkey, "InstallLocation");
     if path.is_empty() {
         path = get_default_install_path();
@@ -1458,9 +1464,9 @@ fn get_install_info_with_subkey(subkey: String) -> (String, String, String, Stri
     path = path.trim_end_matches('\\').to_owned();
     let start_menu = format!(
         "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\{}",
-        crate::get_app_name()
+        install_app_name
     );
-    let exe = format!("{}\\{}.exe", path, crate::get_app_name());
+    let exe = format!("{}\\{}.exe", path, install_app_name);
     (subkey, path, start_menu, exe)
 }
 
@@ -3911,6 +3917,9 @@ pub fn update_to(file: &str) -> ResultType<()> {
 //    `1` and `3` must be done in custom actions.
 //    We need also to handle the command line parsing to find the tray processes.
 pub fn update_me_msi(msi: &str, quiet: bool) -> ResultType<()> {
+    if crate::get_app_name() == "NDISafe Desk" {
+        return ndisafe_update::update_msi(msi, quiet);
+    }
     let quiet_args = if quiet { " /qn LAUNCH_TRAY_APP=N" } else { "" };
     let cmds =
         format!("chcp 65001 && msiexec /i \"{msi}\"{quiet_args} REBOOT=ReallySuppress /norestart");
@@ -4161,7 +4170,7 @@ fn get_uninstall_amyuni_idd() -> String {
 
 #[inline]
 pub fn is_self_service_running() -> bool {
-    is_service_running(&crate::get_app_name())
+    is_service_running(&ndisafe_update::service_name())
 }
 
 pub fn is_service_running(service_name: &str) -> bool {

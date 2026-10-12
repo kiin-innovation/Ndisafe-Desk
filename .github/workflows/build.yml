@@ -20,7 +20,7 @@ env:
   NASM_VERSION: "2.16.03"
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  VERSION: "1.4.10"
+  VERSION: "1.4.11"
 
 jobs:
   validate-release:
@@ -32,6 +32,8 @@ jobs:
           python-version: "3.12"
       - name: Validate release versions
         run: python tools/check_release_version.py --version "$VERSION" --ref "$GITHUB_REF"
+      - name: Test Windows update package configuration
+        run: python -m unittest discover -s res/msi -p test_update_package.py
       - name: Test update version comparisons and asset names
         run: |
           rustc --edition=2021 --test src/update_release.rs -o /tmp/ndisafe-update-tests

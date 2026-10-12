@@ -29,6 +29,15 @@ pub fn windows_asset_name(tag: &str, arch: &str) -> String {
     format!("NDISafe-Desk-{version}-windows-{arch}.exe")
 }
 
+pub fn windows_update_asset_name(tag: &str, arch: &str, use_msi: bool) -> String {
+    if use_msi {
+        let version = tag.strip_prefix('v').unwrap_or(tag);
+        format!("NDISafe-Desk-{version}-windows-{arch}.msi")
+    } else {
+        windows_asset_name(tag, arch)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,6 +96,22 @@ mod tests {
                 windows_asset_name(tag, "aarch64"),
                 "NDISafe-Desk-1.5.0-windows-aarch64.exe"
             );
+        }
+    }
+
+    #[test]
+    fn managed_updates_keep_the_installer_format() {
+        for tag in ["1.4.11", "v1.4.11"] {
+            for arch in ["x86_64", "aarch64"] {
+                assert_eq!(
+                    windows_update_asset_name(tag, arch, true),
+                    format!("NDISafe-Desk-1.4.11-windows-{arch}.msi")
+                );
+                assert_eq!(
+                    windows_update_asset_name(tag, arch, false),
+                    windows_asset_name(tag, arch)
+                );
+            }
         }
     }
 }
