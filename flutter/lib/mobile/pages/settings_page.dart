@@ -1067,6 +1067,9 @@ void showLanguageSettings(OverlayDialogManager dialogManager) async {
   try {
     final langs = json.decode(await bind.mainGetLangs()) as List<dynamic>;
     var lang = bind.mainGetLocalOption(key: kCommConfKeyLang);
+    if (!langs.any((entry) => entry[0] == lang)) {
+      lang = 'en';
+    }
     dialogManager.show((setState, close, context) {
       setLang(v) async {
         if (lang != v) {
@@ -1082,17 +1085,12 @@ void showLanguageSettings(OverlayDialogManager dialogManager) async {
       final isOptFixed = isOptionFixed(kCommConfKeyLang);
       return CustomAlertDialog(
         content: Column(
-          children: [
-                getRadio(Text(translate('Default')), defaultOptionLang, lang,
-                    isOptFixed ? null : setLang),
-                Divider(color: MyTheme.border),
-              ] +
-              langs.map((e) {
-                final key = e[0] as String;
-                final name = e[1] as String;
-                return getRadio(Text(translate(name)), key, lang,
-                    isOptFixed ? null : setLang);
-              }).toList(),
+          children: langs.map((e) {
+            final key = e[0] as String;
+            final name = e[1] as String;
+            return getRadio(Text(translate(name)), key, lang,
+                isOptFixed ? null : setLang);
+          }).toList(),
         ),
       );
     }, backDismiss: true, clickMaskDismiss: true);

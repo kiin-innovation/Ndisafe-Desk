@@ -296,6 +296,8 @@ pub enum DataControl {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "t", content = "c")]
 pub enum DataPortableService {
+    PrivacyPause(bool),
+    PrivacyPauseAck(bool),
     Ping,
     Pong,
     AuthToken(String),
@@ -347,6 +349,10 @@ pub enum Data {
     SwitchPermission {
         name: String,
         enabled: bool,
+    },
+    PrivacyPauseState {
+        paused: bool,
+        confirmed: bool,
     },
     SystemInfo(Option<String>),
     ClickTime(i64),

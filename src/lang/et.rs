@@ -759,5 +759,9 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Browser didn't open? Use the url below to sign in.", "Brauser ei avanenud? Sisselogimiseks kasuta allolevat URL-i."),
         ("Lock canvas", "Lukusta lõuend"),
         ("Video call", ""),
+        ("Pause sharing", ""),
+        ("Resume sharing", ""),
+        ("Sharing paused", ""),
+        ("Privacy pause could not be confirmed. Do not enter confidential information.", ""),
     ].iter().cloned().collect();
 }

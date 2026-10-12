@@ -859,6 +859,7 @@ message Misc {
     DisplayResolution change_display_resolution = 36;
     MessageQuery message_query = 37;
     int32 follow_current_display = 38;
+    bool privacy_pause = 39;
   }
 }
 

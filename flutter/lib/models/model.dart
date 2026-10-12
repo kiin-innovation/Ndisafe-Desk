@@ -226,12 +226,12 @@ class FfiModel with ChangeNotifier {
     });
     // Only inited at remote page
     if (parent.target?.connType == ConnType.defaultConn) {
-      KeyboardEnabledState.find(id).value = _permissions['keyboard'] != false;
+      KeyboardEnabledState.find(id).value = keyboard;
     }
 
     // If keyboard permission was revoked while relative mouse mode is active,
     // forcefully disable relative mouse mode to prevent the user from being trapped.
-    final hasKeyboardPerm = _permissions['keyboard'] != false;
+    final hasKeyboardPerm = keyboard;
     if (hadKeyboardPerm && !hasKeyboardPerm) {
       final inputModel = parent.target?.inputModel;
       if (inputModel != null && inputModel.relativeMouseMode.value) {
@@ -244,7 +244,8 @@ class FfiModel with ChangeNotifier {
     notifyListeners();
   }
 
-  bool get keyboard => _permissions['keyboard'] != false;
+  bool get keyboard => _permissions['keyboard'] != false && !privacyPaused;
+  bool get privacyPaused => _permissions['privacy_pause'] == true;
 
   clear() {
     _pi = PeerInfo();

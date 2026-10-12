@@ -24,6 +24,7 @@ import '../../common/widgets/chat_page.dart';
 import '../../models/file_model.dart';
 import '../../models/platform_model.dart';
 import '../../models/server_model.dart';
+import '../widgets/privacy_pause.dart';
 
 class DesktopServerPage extends StatefulWidget {
   const DesktopServerPage({Key? key}) : super(key: key);
@@ -1107,7 +1108,23 @@ class _CmControlPanel extends StatelessWidget {
                   textColor: Colors.white),
             ),
           ],
-        )
+        ),
+        if (client.type_() == ClientType.remote)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: PrivacyPauseControl(
+              paused: client.privacyPaused,
+              confirmed: !client.privacyPauseFailed,
+              onChanged: (paused) => checkClickTime(client.id, () {
+                bind.cmSwitchPermission(connId: client.id,
+                    name: 'privacy_pause', enabled: paused);
+              }),
+              pauseLabel: translate('Pause sharing'),
+              resumeLabel: translate('Resume sharing'),
+              pendingLabel: translate('Waiting'),
+              errorLabel: translate('Privacy pause could not be confirmed. Do not enter confidential information.'),
+            ),
+          ),
       ],
     ).marginOnly(bottom: buttonBottomMargin);
   }

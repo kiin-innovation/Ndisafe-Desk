@@ -144,6 +144,8 @@ pub struct Client {
     pub recording: bool,
     pub block_input: bool,
     pub privacy_mode: bool,
+    pub privacy_paused: bool,
+    pub privacy_pause_failed: bool,
     pub from_switch: bool,
     pub in_voice_call: bool,
     pub incoming_voice_call: bool,
@@ -254,6 +256,8 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
             recording,
             block_input,
             privacy_mode,
+            privacy_paused: false,
+            privacy_pause_failed: false,
             from_switch,
             #[cfg(not(any(target_os = "ios")))]
             tx,
@@ -395,6 +399,14 @@ pub fn send_chat(id: i32, text: String) {
 #[inline]
 #[cfg(not(any(target_os = "ios")))]
 pub fn switch_permission(id: i32, name: String, enabled: bool) {
+    if name == "privacy_pause" {
+        if let Some(client) = CLIENTS.read().unwrap().get(&id) {
+            if client.authorized && !client.disconnected {
+                allow_err!(client.tx.send(Data::SwitchPermission { name, enabled }));
+            }
+        }
+        return;
+    }
     #[cfg(target_os = "android")]
     let is_keyboard_permission = name == "keyboard";
     #[cfg(not(target_os = "android"))]
@@ -591,6 +603,19 @@ impl<T: InvokeUiCM> IpcTaskRunner<T> {
                                             // existing rows (authorized/privacy_mode) for this fallback path.
                                             self.cm.ui_handler.add_connection(&client);
                                         }
+                                    }
+                                }
+                                Data::PrivacyPauseState { paused, confirmed } => {
+                                    let client = {
+                                        let mut clients = CLIENTS.write().unwrap();
+                                        clients.get_mut(&self.conn_id).map(|client| {
+                                            client.privacy_paused = paused;
+                                            client.privacy_pause_failed = !confirmed;
+                                            client.clone()
+                                        })
+                                    };
+                                    if let Some(client) = client {
+                                        self.cm.ui_handler.add_connection(&client);
                                     }
                                 }
                                 Data::FS(mut fs) => {

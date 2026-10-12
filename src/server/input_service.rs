@@ -805,7 +805,12 @@ pub fn handle_mouse(
     {
         // having GUI (--server has tray, it is GUI too), run main GUI thread, otherwise crash
         let evt = evt.clone();
-        QUEUE.exec_async(move || handle_mouse_(&evt, conn, username, argb, simulate, show_cursor));
+        let queued_at = Instant::now();
+        QUEUE.exec_async(move || {
+            if let Some(_permit) = super::privacy_pause::permit(queued_at) {
+                handle_mouse_(&evt, conn, username, argb, simulate, show_cursor);
+            }
+        });
         return;
     }
     #[cfg(windows)]
@@ -821,7 +826,12 @@ pub fn handle_pointer(evt: &PointerDeviceEvent, conn: i32) {
     {
         // having GUI, run main GUI thread, otherwise crash
         let evt = evt.clone();
-        QUEUE.exec_async(move || handle_pointer_(&evt, conn));
+        let queued_at = Instant::now();
+        QUEUE.exec_async(move || {
+            if let Some(_permit) = super::privacy_pause::permit(queued_at) {
+                handle_pointer_(&evt, conn);
+            }
+        });
         return;
     }
     #[cfg(windows)]
@@ -932,6 +942,21 @@ fn fix_key_down_timeout(force: bool) {
             release_record_key(record_key);
         }
     }
+}
+
+pub(super) fn release_for_privacy_pause() {
+    fix_key_down_timeout(true);
+    let release = || {
+        let mut enigo = ENIGO.lock().unwrap();
+        for button in [MouseButton::Left, MouseButton::Right, MouseButton::Middle,
+            MouseButton::Back, MouseButton::Forward] {
+            enigo.mouse_up(button);
+        }
+    };
+    #[cfg(target_os = "macos")]
+    QUEUE.exec_sync(release);
+    #[cfg(not(target_os = "macos"))]
+    release();
 }
 
 // e.g. current state of ctrl is down, but ctrl not in modifier, we should change ctrl to up, to make modifier state sync between remote and local
@@ -1412,7 +1437,12 @@ pub fn handle_key(evt: &KeyEvent) {
 pub fn handle_key(evt: &KeyEvent) {
     // having GUI, run main GUI thread, otherwise crash
     let evt = evt.clone();
-    QUEUE.exec_async(move || handle_key_(&evt));
+    let queued_at = Instant::now();
+    QUEUE.exec_async(move || {
+        if let Some(_permit) = super::privacy_pause::permit(queued_at) {
+            handle_key_(&evt);
+        }
+    });
     // Key sleep is required for macOS.
     // If we don't sleep, the key press/release events may not take effect.
     //

@@ -80,6 +80,9 @@ fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
     while sp.ok() {
         match rx_cb_result.recv_timeout(Duration::from_millis(INTERVAL)) {
             Ok(CallbackResult::Next) => {
+                let Some(_privacy_permit) = super::privacy_pause::permit(std::time::Instant::now()) else {
+                    continue;
+                };
                 #[cfg(feature = "unix-file-copy-paste")]
                 if sp.name() == FILE_NAME {
                     handler.check_clipboard_file();

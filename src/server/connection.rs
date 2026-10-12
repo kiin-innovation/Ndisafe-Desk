@@ -292,7 +292,7 @@ pub struct Connection {
     // by peer
     audio_sender: Option<MediaSender>,
     // audio by the remote peer/client
-    tx_input: std_mpsc::Sender<MessageInput>,
+    tx_input: std_mpsc::Sender<(Instant, MessageInput)>,
     // handle input messages
     video_ack_required: bool,
     server_audit_conn: String,
@@ -366,6 +366,9 @@ impl Subscriber for ConnInner {
 
     #[inline]
     fn send(&mut self, msg: Arc<Message>) {
+        if super::privacy_pause::is_paused() && super::privacy_pause::sensitive(&msg) {
+            return;
+        }
         // Send SwitchDisplay on the same channel as VideoFrame to avoid send order problems.
         let tx_by_video = match &msg.union {
             Some(message::Union::VideoFrame(_)) => true,
@@ -596,6 +599,7 @@ impl Connection {
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         std::thread::spawn(move || Self::handle_input(_rx_input, tx_cloned));
         let mut second_timer = crate::rustdesk_interval(time::interval(Duration::from_secs(1)));
+        let mut privacy_pause_rx = super::privacy_pause::subscribe();
 
         #[cfg(feature = "unix-file-copy-paste")]
         let rx_clip_holder;
@@ -622,6 +626,19 @@ impl Connection {
         loop {
             tokio::select! {
                 // biased; // video has higher priority // causing test_delay_timer failed while transferring big file
+
+                Ok(()) = privacy_pause_rx.changed() => {
+                    let (paused, confirmed) = *privacy_pause_rx.borrow_and_update();
+                    conn.notify_privacy_pause(paused, confirmed).await;
+                    if paused && conn.authorized && !conn.is_remote() && !conn.view_camera {
+                        conn.send_close_reason_no_retry("Sharing paused").await;
+                        conn.on_close("Sharing paused", true).await;
+                        break;
+                    }
+                    if !paused {
+                        conn.refresh_video_display(None);
+                    }
+                }
 
                 Some(data) = rx_from_cm.recv() => {
                     match data {
@@ -661,6 +678,12 @@ impl Connection {
                             conn.chat_unanswered = false;
                         }
                         ipc::Data::SwitchPermission{name, enabled} => {
+                            if name == "privacy_pause" {
+                                if let Err(err) = super::privacy_pause::request(enabled).await {
+                                    log::error!("Privacy pause could not be confirmed: {err}");
+                                }
+                                continue;
+                            }
                             log::info!("Change permission {} -> {}", name, enabled);
                             if &name == "keyboard" {
                                 conn.keyboard = enabled;
@@ -772,10 +795,16 @@ impl Connection {
                             }
                         }
                         ipc::Data::RawMessage(bytes) => {
+                            if super::privacy_pause::is_paused() {
+                                continue;
+                            }
                             allow_err!(conn.stream.send_raw(bytes).await);
                         }
                         #[cfg(target_os = "windows")]
                         ipc::Data::ClipboardFile(clip) => {
+                            if super::privacy_pause::is_paused() {
+                                continue;
+                            }
                             if !conn.is_remote() {
                                 continue;
                             }
@@ -907,6 +936,9 @@ impl Connection {
                     }
                 },
                 _ = conn.file_timer.tick() => {
+                    if super::privacy_pause::is_paused() {
+                        continue;
+                    }
                     if !conn.read_jobs.is_empty() {
                         conn.send_to_cm(ipc::Data::FileTransferLog(("transfer".to_string(), fs::serialize_transfer_jobs(&conn.read_jobs))));
                         match fs::handle_read_jobs(&mut conn.read_jobs, &mut conn.stream).await {
@@ -932,6 +964,12 @@ impl Connection {
                     }
                 }
                 Some((instant, value)) = rx_video.recv() => {
+                    if !super::privacy_pause::permits(instant.into()) {
+                        if let Some(message::Union::VideoFrame(vf)) = &value.union {
+                            video_service::notify_video_frame_fetched(vf.display as usize, id, Some(instant.into()));
+                        }
+                        continue;
+                    }
                     if !conn.video_ack_required {
                         if let Some(message::Union::VideoFrame(vf)) = &value.union {
                             video_service::notify_video_frame_fetched(vf.display as usize, id, Some(instant.into()));
@@ -943,6 +981,11 @@ impl Connection {
                     }
                 },
                 Some((instant, value)) = rx.recv() => {
+                    if super::privacy_pause::sensitive(&value)
+                        && !super::privacy_pause::permits(instant.into())
+                    {
+                        continue;
+                    }
                     let latency = instant.elapsed().as_millis() as i64;
                     #[allow(unused_mut)]
                     let mut msg = value;
@@ -1055,6 +1098,9 @@ impl Connection {
                 }
                 clip_file = rx_clip.recv() => match clip_file {
                     Some(_clip) => {
+                        if super::privacy_pause::is_paused() {
+                            continue;
+                        }
                         #[cfg(feature = "unix-file-copy-paste")]
                         if crate::is_support_file_copy_paste(&conn.lr.version)
                         {
@@ -1101,8 +1147,9 @@ impl Connection {
     }
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    fn handle_input(receiver: std_mpsc::Receiver<MessageInput>, tx: Sender) {
+    fn handle_input(receiver: std_mpsc::Receiver<(Instant, MessageInput)>, tx: Sender) {
         let mut block_input_mode = false;
+        let mut block_input_started = Instant::now();
         #[cfg(any(target_os = "windows", target_os = "macos"))]
         {
             rdev::set_mouse_extra_info(enigo::ENIGO_INPUT_EXTRA_VALUE);
@@ -1111,8 +1158,27 @@ impl Connection {
         #[cfg(target_os = "macos")]
         reset_input_ondisconn();
         loop {
-            match receiver.recv_timeout(std::time::Duration::from_millis(500)) {
-                Ok(v) => match v {
+            let received = receiver.recv_timeout(std::time::Duration::from_millis(500));
+            if block_input_mode && !super::privacy_pause::permits(block_input_started.into()) {
+                let (ok, error) = crate::platform::block_input(false);
+                if ok {
+                    block_input_mode = false;
+                } else {
+                    log::error!("Could not release blocked local input for privacy pause: {error}");
+                }
+            }
+            let _permit = match &received {
+                Ok((queued_at, v)) if !matches!(v, MessageInput::BlockOff) => {
+                    let permit = super::privacy_pause::permit((*queued_at).into());
+                    if permit.is_none() {
+                        continue;
+                    }
+                    permit
+                }
+                _ => None,
+            };
+            match received {
+                Ok((_, v)) => match v {
                     MessageInput::Mouse(mouse_input) => {
                         handle_mouse(
                             &mouse_input.msg,
@@ -1142,6 +1208,7 @@ impl Connection {
                         let (ok, msg) = crate::platform::block_input(true);
                         if ok {
                             block_input_mode = true;
+                            block_input_started = Instant::now();
                         } else {
                             Self::send_block_input_error(
                                 &tx,
@@ -1165,7 +1232,9 @@ impl Connection {
                 },
                 Err(err) => {
                     if block_input_mode {
-                        let _ = crate::platform::block_input(true);
+                        if let Some(_permit) = super::privacy_pause::permit(block_input_started.into()) {
+                            let _ = crate::platform::block_input(true);
+                        }
                     }
                     if std_mpsc::RecvTimeoutError::Disconnected == err {
                         break;
@@ -1190,12 +1259,21 @@ impl Connection {
         rx_from_cm: &mut mpsc::UnboundedReceiver<Data>,
     ) -> ResultType<()> {
         let mut last_recv_time = Instant::now();
+        let mut privacy_pause_rx = super::privacy_pause::subscribe();
         if let Some(mut forward) = self.port_forward_socket.take() {
             log::info!("Running port forwarding loop");
             self.stream.set_raw();
             let mut hbbs_rx = crate::hbbs_http::sync::signal_receiver();
             loop {
+                if super::privacy_pause::is_paused() {
+                    bail!("Sharing paused");
+                }
                 tokio::select! {
+                    Ok(()) = privacy_pause_rx.changed() => {
+                        if super::privacy_pause::is_paused() {
+                            bail!("Sharing paused");
+                        }
+                    }
                     Some(data) = rx_from_cm.recv() => {
                         match data {
                             ipc::Data::Close => {
@@ -1209,6 +1287,9 @@ impl Connection {
                         }
                     }
                     res = forward.next() => {
+                        if super::privacy_pause::is_paused() {
+                            bail!("Sharing paused");
+                        }
                         if let Some(res) = res {
                             last_recv_time = Instant::now();
                             self.stream.send_bytes(res?.into()).await?;
@@ -1217,6 +1298,9 @@ impl Connection {
                         }
                     },
                     res = self.stream.next() => {
+                        if super::privacy_pause::is_paused() {
+                            bail!("Sharing paused");
+                        }
                         if let Some(res) = res {
                             last_recv_time = Instant::now();
                             timeout(SEND_TIMEOUT_OTHER, forward.send(res?)).await??;
@@ -1688,6 +1772,10 @@ impl Connection {
     // Returns whether this connection should be kept alive.
     // `true` does not necessarily mean authorization succeeded (e.g. REQUIRE_2FA case).
     async fn send_logon_response_and_keep_alive(&mut self) -> bool {
+        if super::privacy_pause::is_paused() {
+            self.send_login_error("Sharing paused").await;
+            return false;
+        }
         if self.authorized {
             return true;
         }
@@ -2000,6 +2088,8 @@ impl Connection {
         msg_out.set_login_response(res);
         self.send(msg_out).await;
         self.update_scoped_login_options().await;
+        let (paused, confirmed) = *super::privacy_pause::subscribe().borrow();
+        self.notify_privacy_pause(paused, confirmed).await;
         if let Some((dir, show_hidden)) = self.file_transfer.clone() {
             self.keyboard = false;
             let dir = if !dir.is_empty() && std::path::Path::new(&dir).is_dir() {
@@ -2183,6 +2273,8 @@ impl Connection {
             privacy_mode: self.privacy_mode,
             from_switch: self.from_switch,
         });
+        let (paused, confirmed) = *super::privacy_pause::subscribe().borrow();
+        self.send_to_cm(ipc::Data::PrivacyPauseState { paused, confirmed });
     }
 
     #[inline]
@@ -2236,14 +2328,14 @@ impl Connection {
         show_cursor: bool,
     ) {
         self.tx_input
-            .send(MessageInput::Mouse(InputMouse {
+            .send((Instant::now(), MessageInput::Mouse(InputMouse {
                 msg,
                 conn_id,
                 username,
                 argb,
                 simulate,
                 show_cursor,
-            }))
+            })))
             .ok();
     }
 
@@ -2251,7 +2343,7 @@ impl Connection {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     fn input_pointer(&self, msg: PointerDeviceEvent, conn_id: i32) {
         self.tx_input
-            .send(MessageInput::Pointer((msg, conn_id)))
+            .send((Instant::now(), MessageInput::Pointer((msg, conn_id))))
             .ok();
     }
 
@@ -2260,7 +2352,7 @@ impl Connection {
     fn input_key(&self, msg: KeyEvent, press: bool) {
         // to-do: if is the legacy mode, and the key is function key "LockScreen".
         // Switch to the primary display.
-        self.tx_input.send(MessageInput::Key((msg, press))).ok();
+        self.tx_input.send((Instant::now(), MessageInput::Key((msg, press)))).ok();
     }
 
     fn verify_h1(&self, h1: &[u8]) -> bool {
@@ -2651,6 +2743,12 @@ impl Connection {
     }
 
     async fn on_message(&mut self, msg: Message) -> bool {
+        if super::privacy_pause::is_paused()
+            && self.authorized
+            && !super::privacy_pause::allows_incoming(&msg)
+        {
+            return true;
+        }
         if let Some(message::Union::Misc(misc)) = &msg.union {
             // Move the CloseReason forward, as this message needs to be received when unauthorized, especially for kcp.
             if let Some(misc::Union::CloseReason(s)) = &misc.union {
@@ -4730,10 +4828,10 @@ impl Connection {
             if self.keyboard && self.block_input {
                 match q {
                     BoolOption::Yes => {
-                        self.tx_input.send(MessageInput::BlockOn).ok();
+                        self.tx_input.send((Instant::now(), MessageInput::BlockOn)).ok();
                     }
                     BoolOption::No => {
-                        self.tx_input.send(MessageInput::BlockOff).ok();
+                        self.tx_input.send((Instant::now(), MessageInput::BlockOff)).ok();
                     }
                     _ => {}
                 }
@@ -5265,7 +5363,21 @@ impl Connection {
 
     #[inline]
     async fn send(&mut self, msg: Message) {
+        if super::privacy_pause::is_paused() && super::privacy_pause::sensitive(&msg) {
+            return;
+        }
         allow_err!(self.stream.send(&msg).await);
+    }
+
+    async fn notify_privacy_pause(&mut self, paused: bool, confirmed: bool) {
+        self.send_to_cm(ipc::Data::PrivacyPauseState { paused, confirmed });
+        if self.authorized {
+            let mut misc = Misc::new();
+            misc.set_privacy_pause(paused);
+            let mut msg = Message::new();
+            msg.set_misc(misc);
+            self.send(msg).await;
+        }
     }
 
     pub fn alive_conns() -> Vec<i32> {
@@ -6665,6 +6777,13 @@ mod raii {
                 .filter(|c| c.conn_type == AuthConnType::Remote)
                 .count();
             if remote_count == 0 {
+                if super::super::privacy_pause::is_paused() {
+                    tokio::spawn(async {
+                        if let Err(err) = super::super::privacy_pause::request(false).await {
+                            log::error!("Could not reset privacy pause after all viewers disconnected: {err}");
+                        }
+                    });
+                }
                 #[cfg(any(target_os = "windows", target_os = "linux"))]
                 {
                     *WALLPAPER_REMOVER.lock().unwrap() = None;

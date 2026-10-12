@@ -18,6 +18,7 @@ mod eu;
 mod fa;
 mod gu;
 mod fr;
+mod rw;
 mod he;
 mod hi;
 mod hr;
@@ -51,56 +52,14 @@ mod ge;
 mod fi;
 mod ml;
 
+#[cfg(test)]
+#[path = "lang/template.rs"]
+mod template;
+
 pub const LANGS: &[(&str, &str)] = &[
     ("en", "English"),
-    ("it", "Italiano"),
+    ("rw", "Kinyarwanda"),
     ("fr", "Français"),
-    ("de", "Deutsch"),
-    ("nl", "Nederlands"),
-    ("nb", "Norsk bokmål"),
-    ("zh-cn", "简体中文"),
-    ("zh-tw", "繁體中文"),
-    ("pt", "Português"),
-    ("es", "Español"),
-    ("et", "Eesti keel"),
-    ("eu", "Euskara"),
-    ("hu", "Magyar"),
-    ("bg", "Български"),
-    ("be", "Беларуская"),
-    ("ru", "Русский"),
-    ("sk", "Slovenčina"),
-    ("id", "Indonesia"),
-    ("cs", "Čeština"),
-    ("da", "Dansk"),
-    ("eo", "Esperanto"),
-    ("tr", "Türkçe"),
-    ("vi", "Tiếng Việt"),
-    ("pl", "Polski"),
-    ("ja", "日本語"),
-    ("ko", "한국어"),
-    ("kz", "Қазақ"),
-    ("uk", "Українська"),
-    ("fa", "فارسی"),
-    ("ca", "Català"),
-    ("el", "Ελληνικά"),
-    ("sv", "Svenska"),
-    ("sq", "Shqip"),
-    ("sr", "Srpski"),
-    ("th", "ภาษาไทย"),
-    ("sl", "Slovenščina"),
-    ("ro", "Română"),
-    ("lt", "Lietuvių"),
-    ("lv", "Latviešu"),
-    ("ar", "العربية"),
-    ("he", "עברית"),
-    ("hr", "Hrvatski"),
-    ("sc", "Sardu"),
-    ("ta", "தமிழ்"),
-    ("ge", "ქართული"),
-    ("fi", "Suomi"),
-    ("ml", "മലയാളം"),
-    ("hi", "हिंदी"),
-    ("gu", "ગુજરાતી"),
 ];
 
 pub(crate) fn cjk_ui_unavailable() -> bool {
@@ -120,36 +79,13 @@ pub(crate) fn is_cjk_lang(lang_or_locale: &str) -> bool {
     matches!(lang.as_str(), "zh" | "ja" | "ko")
 }
 
-fn resolve_lang(saved_lang: &str, locale: &str, cjk_fallback: bool) -> String {
-    let locale = locale.to_lowercase();
-    let mut lang = saved_lang.to_lowercase();
-    if cjk_fallback && is_cjk_lang(&lang) {
-        return "en".to_owned();
+fn resolve_lang(saved_lang: &str, _locale: &str, _cjk_fallback: bool) -> String {
+    match saved_lang.to_lowercase().as_str() {
+        "fr" => "fr",
+        "rw" => "rw",
+        _ => "en",
     }
-    if lang.is_empty() {
-        // zh_CN on Linux, zh-Hans-CN on mac, zh_CN_#Hans on Android
-        if locale.starts_with("zh") {
-            lang = (if locale.contains("tw") {
-                "zh-tw"
-            } else {
-                "zh-cn"
-            })
-            .to_owned();
-        }
-    }
-    if lang.is_empty() {
-        lang = locale
-            .split("-")
-            .next()
-            .map(|x| x.split("_").next().unwrap_or_default())
-            .unwrap_or_default()
-            .to_owned();
-    }
-    if cjk_fallback && is_cjk_lang(&lang) {
-        "en".to_owned()
-    } else {
-        lang
-    }
+    .to_owned()
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -166,6 +102,7 @@ pub fn translate_locale(name: String, locale: &str) -> String {
     );
     let m = match lang.as_str() {
         "fr" => fr::T.deref(),
+        "rw" => rw::T.deref(),
         "zh-cn" => cn::T.deref(),
         "it" => it::T.deref(),
         "zh-tw" => tw::T.deref(),
@@ -309,30 +246,44 @@ mod test {
     }
 
     #[test]
-    fn test_resolve_lang_forces_english_for_saved_cjk_when_target_disables_cjk() {
-        use super::resolve_lang as f;
-
-        assert_eq!(f("zh-cn", "en-US", true), "en");
-        assert_eq!(f("zh-tw", "en-US", true), "en");
-        assert_eq!(f("ja", "en-US", true), "en");
-        assert_eq!(f("ko", "en-US", true), "en");
+    fn test_only_three_supported_languages() {
+        assert_eq!(super::LANGS.iter().map(|x| x.0).collect::<Vec<_>>(), vec!["en", "rw", "fr"]);
     }
 
     #[test]
-    fn test_resolve_lang_forces_english_for_cjk_locale_when_target_disables_cjk() {
-        use super::resolve_lang as f;
-
-        assert_eq!(f("", "zh_CN", true), "en");
-        assert_eq!(f("", "ja-JP", true), "en");
-        assert_eq!(f("", "ko_KR", true), "en");
+    fn test_english_is_default_regardless_of_system_locale() {
+        for locale in ["en-US", "fr-FR", "rw-RW", "zh_CN", "ja-JP", "ko_KR"] {
+            for cjk_fallback in [false, true] {
+                assert_eq!(super::resolve_lang("", locale, cjk_fallback), "en");
+                assert_eq!(super::resolve_lang("de", locale, cjk_fallback), "en");
+                assert_eq!(super::resolve_lang("zh-cn", locale, cjk_fallback), "en");
+            }
+        }
     }
 
     #[test]
-    fn test_resolve_lang_preserves_cjk_when_target_allows_cjk() {
-        use super::resolve_lang as f;
+    fn test_explicit_supported_language_is_preserved() {
+        for lang in ["en", "fr", "rw"] {
+            for cjk_fallback in [false, true] {
+                assert_eq!(super::resolve_lang(lang, "de-DE", cjk_fallback), lang);
+                assert_eq!(super::resolve_lang(&lang.to_uppercase(), "en-US", cjk_fallback), lang);
+            }
+        }
+    }
 
-        assert_eq!(f("zh-cn", "en-US", false), "zh-cn");
-        assert_eq!(f("", "zh_TW", false), "zh-tw");
-        assert_eq!(f("", "ja-JP", false), "ja");
+    #[test]
+    fn test_kinyarwanda_keys_cover_template_and_preserve_placeholders() {
+        assert_eq!(super::rw::T.len(), super::template::T.len());
+        for key in super::template::T.keys() {
+            assert!(super::rw::T.contains_key(key), "Missing Kinyarwanda key: {}", key);
+        }
+        for (key, value) in super::rw::T.iter().filter(|(_, value)| !value.is_empty()) {
+            let source = super::en::T.get(key).filter(|v| !v.is_empty()).copied().unwrap_or(key);
+            assert_eq!(source.matches("{}").count(), value.matches("{}").count(), "Placeholder mismatch: {}", key);
+            for placeholder in ["%min%", "%max%"] {
+                assert_eq!(source.matches(placeholder).count(), value.matches(placeholder).count(), "Placeholder mismatch: {}", key);
+            }
+        }
+        assert_eq!(super::rw::T.get("Pause sharing"), Some(&"Hagarika gusangiza by'agateganyo"));
     }
 }

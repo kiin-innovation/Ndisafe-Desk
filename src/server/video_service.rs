@@ -657,6 +657,12 @@ fn run(vs: VideoService) -> ResultType<()> {
     let (mut second_instant, mut send_counter) = (Instant::now(), 0);
 
     while sp.ok() {
+        if super::privacy_pause::is_paused() {
+            while sp.ok() && super::privacy_pause::is_paused() {
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            bail!("SWITCH");
+        }
         #[cfg(windows)]
         check_uac_switch(c.privacy_mode_id, c._capturer_privacy_mode_id)?;
         check_qos(
@@ -721,6 +727,9 @@ fn run(vs: VideoService) -> ResultType<()> {
 
         let time = now - start;
         let ms = (time.as_secs() * 1000 + time.subsec_millis() as u64) as i64;
+        let Some(capture_permit) = super::privacy_pause::permit(Instant::now()) else {
+            continue;
+        };
         let res = match c.frame(spf) {
             Ok(frame) => {
                 repeat_encode_counter = 0;
@@ -872,6 +881,7 @@ fn run(vs: VideoService) -> ResultType<()> {
             }
         }
 
+        drop(capture_permit);
         let mut fetched_conn_ids = HashSet::new();
         let timeout_millis = 3_000u64;
         let wait_begin = Instant::now();

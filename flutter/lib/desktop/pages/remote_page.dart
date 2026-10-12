@@ -23,6 +23,7 @@ import '../widgets/remote_toolbar.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
 import 'macos_full_screen_focus_recovery.dart';
+import '../widgets/privacy_pause.dart';
 
 import 'package:flutter_hbb/native/custom_cursor.dart'
     if (dart.library.html) 'package:flutter_hbb/web/custom_cursor.dart';
@@ -740,6 +741,10 @@ class _RemotePageState extends State<RemotePage>
                   },
                   inputModel: _ffi.inputModel,
                   child: getBodyForDesktop(context))),
+          Consumer<FfiModel>(builder: (context, model, _) =>
+            model.privacyPaused
+              ? Positioned.fill(child: PrivacyPauseCover(label: translate('Sharing paused')))
+              : const SizedBox.shrink()),
           Stack(
             children: [
               _ffi.ffiModel.pi.isSet.isTrue &&

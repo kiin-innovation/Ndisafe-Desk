@@ -591,6 +591,11 @@ pub mod server {
             if EXIT.lock().unwrap().clone() {
                 break;
             }
+            let Some(_privacy_permit) = super::super::privacy_pause::permit(std::time::Instant::now()) else {
+                c = None;
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            };
             unsafe {
                 let para_ptr = shmem.as_ptr().add(ADDR_CAPTURER_PARA);
                 let para = para_ptr as *const CapturerPara;
@@ -796,6 +801,14 @@ pub mod server {
                                             crate::input_service::handle_key_(&evt);
                                         }
                                     }
+                                    PrivacyPause(paused) => {
+                                        match tokio::task::spawn_blocking(move || super::super::privacy_pause::set_local(paused)).await {
+                                            Ok(()) => {
+                                                allow_err!(stream.send(&Data::DataPortableService(PrivacyPauseAck(paused))).await);
+                                            }
+                                            Err(err) => log::error!("Portable privacy pause failed: {err}"),
+                                        }
+                                    }
                                     _ => {}
                                 },
                                 _ => {}
@@ -838,6 +851,7 @@ pub mod client {
         static ref IPC_RUNTIME_TOKEN: Arc<Mutex<Option<String>>> = Default::default();
         static ref SENDER : Mutex<mpsc::UnboundedSender<ipc::Data>> = Mutex::new(client::start_ipc_server());
         static ref QUICK_SUPPORT: Arc<Mutex<bool>> = Default::default();
+        static ref PRIVACY_PAUSE_ACK: tokio::sync::watch::Sender<Option<bool>> = tokio::sync::watch::channel(None).0;
     }
 
     pub enum StartPara {
@@ -1420,6 +1434,9 @@ pub mod client {
                                                                 log::info!("portable service will close");
                                                                 break;
                                                             }
+                                                            PrivacyPauseAck(paused) => {
+                                                                PRIVACY_PAUSE_ACK.send_replace(Some(paused));
+                                                            }
                                                             _=>{}
                                                         }
                                                         _=>{}
@@ -1462,6 +1479,24 @@ pub mod client {
         sender
             .send(data)
             .map_err(|e| anyhow!("ipc send error:{:?}", e))
+    }
+
+    pub async fn sync_privacy_pause(paused: bool) -> ResultType<()> {
+        if !running() && !*STARTING.lock().unwrap() {
+            return Ok(());
+        }
+        let mut ack = PRIVACY_PAUSE_ACK.subscribe();
+        ack.borrow_and_update();
+        ipc_send(Data::DataPortableService(DataPortableService::PrivacyPause(paused)))?;
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                ack.changed().await?;
+                if *ack.borrow_and_update() == Some(paused) {
+                    return Ok::<(), hbb_common::anyhow::Error>(());
+                }
+            }
+        }).await??;
+        Ok(())
     }
 
     fn get_cursor_info_(shmem: &mut SharedMemory, pci: PCURSORINFO) -> BOOL {

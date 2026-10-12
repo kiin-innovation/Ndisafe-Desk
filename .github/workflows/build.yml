@@ -20,7 +20,7 @@ env:
   NASM_VERSION: "2.16.03"
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  VERSION: "1.4.11"
+  VERSION: "1.4.12"
 
 jobs:
   validate-release:
@@ -146,11 +146,11 @@ jobs:
           cd flutter
           flutter build windows --release
 
-      - name: Test video call lifecycle
+      - name: Test video call and privacy pause lifecycle
         shell: bash
         run: |
           cd flutter
-          flutter test --no-pub test/video_call_test.dart
+          flutter test --no-pub test/video_call_test.dart test/privacy_pause_test.dart
 
       - name: Assemble portable bundle
         shell: pwsh

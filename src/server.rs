@@ -69,6 +69,7 @@ pub mod input_service {
 }
 
 mod connection;
+pub mod privacy_pause;
 mod login_failure_check;
 pub mod display_service;
 #[cfg(windows)]

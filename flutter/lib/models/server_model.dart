@@ -560,6 +560,11 @@ class ServerModel with ChangeNotifier {
   void addConnection(Map<String, dynamic> evt) {
     try {
       final client = Client.fromJson(jsonDecode(evt["client"]));
+      final existing = _clients.indexWhere((c) => c.id == client.id);
+      if (existing >= 0) {
+        _clients[existing].privacyPaused = client.privacyPaused;
+        _clients[existing].privacyPauseFailed = client.privacyPauseFailed;
+      }
       if (client.authorized) {
         parent.target?.dialogManager.dismissByTag(getLoginDialogTag(client.id));
         final index = _clients.indexWhere((c) => c.id == client.id);
@@ -864,6 +869,8 @@ class Client {
   bool recording = false;
   bool blockInput = false;
   bool privacyMode = false;
+  bool privacyPaused = false;
+  bool privacyPauseFailed = false;
   bool disconnected = false;
   bool fromSwitch = false;
   bool inVoiceCall = false;
@@ -893,6 +900,8 @@ class Client {
     recording = json['recording'];
     blockInput = json['block_input'];
     privacyMode = json['privacy_mode'] ?? privacyMode;
+    privacyPaused = json['privacy_paused'] ?? false;
+    privacyPauseFailed = json['privacy_pause_failed'] ?? false;
     disconnected = json['disconnected'];
     fromSwitch = json['from_switch'];
     inVoiceCall = json['in_voice_call'];
@@ -918,6 +927,8 @@ class Client {
     data['recording'] = recording;
     data['block_input'] = blockInput;
     data['privacy_mode'] = privacyMode;
+    data['privacy_paused'] = privacyPaused;
+    data['privacy_pause_failed'] = privacyPauseFailed;
     data['disconnected'] = disconnected;
     data['from_switch'] = fromSwitch;
     data['in_voice_call'] = inVoiceCall;
