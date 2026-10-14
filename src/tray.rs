@@ -296,6 +296,12 @@ async fn start_query_session_count(sender: std::sync::mpsc::Sender<Data>) {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn load_icon_from_asset() -> Option<image::DynamicImage> {
+    None
+}
+
+#[cfg(not(target_os = "macos"))]
 fn load_icon_from_asset() -> Option<image::DynamicImage> {
     let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
     else {

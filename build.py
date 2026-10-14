@@ -981,6 +981,8 @@ def build_flutter_dmg(version, features):
     system2(
         f'FLUTTER_XCODE_ARCHS={mac_arch} FLUTTER_XCODE_ONLY_ACTIVE_ARCH=YES flutter build macos --release')
     system2('cp -rf ../target/release/service ./build/macos/Build/Products/Release/Ndisafe-desk.app/Contents/MacOS/')
+    system2(python_cmd('../tools/package_macos.py', 'sign', '--app',
+                       './build/macos/Build/Products/Release/Ndisafe-desk.app'))
     '''
     system2(
         "create-dmg --volname \"NDISafe Desk Installer\" --window-pos 200 120 --window-size 800 400 --icon-size 100 --app-drop-link 600 185 --icon Ndisafe-desk.app 200 190 --hide-extension Ndisafe-desk.app rustdesk.dmg ./build/macos/Build/Products/Release/Ndisafe-desk.app")

@@ -20,7 +20,7 @@ env:
   NASM_VERSION: "2.16.03"
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  VERSION: "1.4.12"
+  VERSION: "1.4.13"
 
 jobs:
   validate-release:
@@ -34,6 +34,12 @@ jobs:
         run: python tools/check_release_version.py --version "$VERSION" --ref "$GITHUB_REF"
       - name: Test Windows update package configuration
         run: python -m unittest discover -s res/msi -p test_update_package.py
+      - name: Test macOS package validation
+        run: python -m unittest discover -s tools -p test_macos_package.py
+      - name: Test macOS installation paths
+        run: |
+          rustc --edition=2021 --test src/platform/macos_install.rs -o /tmp/ndisafe-macos-install-tests
+          /tmp/ndisafe-macos-install-tests
       - name: Test update version comparisons and asset names
         run: |
           rustc --edition=2021 --test src/update_release.rs -o /tmp/ndisafe-update-tests
@@ -150,7 +156,7 @@ jobs:
         shell: bash
         run: |
           cd flutter
-          flutter test --no-pub test/video_call_test.dart test/privacy_pause_test.dart
+          flutter test --no-pub test/video_call_test.dart test/privacy_pause_test.dart test/brand_assets_test.dart
 
       - name: Assemble portable bundle
         shell: pwsh
@@ -258,10 +264,33 @@ jobs:
             SignOutput/NDISafe-Desk-${{ env.VERSION }}-windows-x86_64.msi
           retention-days: 30
 
+  test-macos-packaging:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: brew install create-dmg
+      - name: Test real app signing, DMG mounting and PKG contents
+        run: python -m unittest discover -s tools -p test_macos_package.py -v
+
   build-macos:
     name: ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
-    needs: [generate-bridge, validate-release]
+    needs: [generate-bridge, validate-release, test-macos-packaging]
+    env:
+      MACOS_P12_BASE64: ${{ secrets.MACOS_P12_BASE64 }}
+      MACOS_P12_PASSWORD: ${{ secrets.MACOS_P12_PASSWORD }}
+      MACOS_CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
+      MACOS_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
+      MACOS_APPLE_ID: ${{ secrets.MACOS_APPLE_ID }}
+      MACOS_TEAM_ID: ${{ secrets.MACOS_TEAM_ID }}
+      MACOS_APP_PASSWORD: ${{ secrets.MACOS_APP_PASSWORD }}
     strategy:
       fail-fast: false
       matrix:
@@ -380,36 +409,29 @@ jobs:
           fi
           ./build.py --flutter --hwcodec --unix-file-copy-paste ${{ matrix.job.extra-build-args }}
 
-      - name: Create DMG
-        run: |
-          CREATE_DMG="$(command -v create-dmg)"
-          CREATE_DMG="$(readlink -f "$CREATE_DMG")"
-          sed -i -e 's/MAXIMUM_UNMOUNTING_ATTEMPTS=3/MAXIMUM_UNMOUNTING_ATTEMPTS=7/' "$CREATE_DMG"
-          create-dmg --icon "Ndisafe-desk.app" 200 190 --hide-extension "Ndisafe-desk.app" --window-size 800 400 --app-drop-link 600 185 \
-            ndisafe-desk-${{ env.VERSION }}-${{ matrix.job.arch }}.dmg \
-            ./flutter/build/macos/Build/Products/Release/Ndisafe-desk.app
+      - name: Check Apple signing configuration
+        run: python3 tools/package_macos.py check-signing
 
-      - name: Upload macOS app
+      - name: Import Apple Developer ID certificates
+        if: env.MACOS_P12_BASE64 != ''
+        uses: apple-actions/import-codesign-certs@253ddeeac23f2bdad1646faac5c8c2832e800071
+        with:
+          p12-file-base64: ${{ secrets.MACOS_P12_BASE64 }}
+          p12-password: ${{ secrets.MACOS_P12_PASSWORD }}
+
+      - name: Sign, package and verify macOS installers
+        run: |
+          python3 tools/package_macos.py package \
+            --app ./flutter/build/macos/Build/Products/Release/Ndisafe-desk.app \
+            --version "${{ env.VERSION }}" --arch "${{ matrix.job.arch }}" \
+            --output ./build/macos-installers
+
+      - name: Upload verified macOS installers and checksums
         uses: actions/upload-artifact@v4
         with:
           name: NDISafe-Desk-${{ env.VERSION }}-macos-${{ matrix.job.arch }}
-          path: ndisafe-desk-${{ env.VERSION }}-${{ matrix.job.arch }}.dmg
-          retention-days: 30
-
-      - name: Build macOS pkg installer
-        run: |
-          pkgbuild --root ./flutter/build/macos/Build/Products/Release \
-            --identifier com.ndisafe.desk \
-            --version ${{ env.VERSION }} \
-            --install-location /Applications \
-            NDISafe-Desk-${{ env.VERSION }}-${{ matrix.job.arch }}.pkg
-          ls -la NDISafe-Desk-${{ env.VERSION }}-${{ matrix.job.arch }}.pkg
-
-      - name: Upload macOS pkg
-        uses: actions/upload-artifact@v4
-        with:
-          name: NDISafe-Desk-${{ env.VERSION }}-macos-pkg-${{ matrix.job.arch }}
-          path: NDISafe-Desk-${{ env.VERSION }}-${{ matrix.job.arch }}.pkg
+          path: build/macos-installers/*
+          if-no-files-found: error
           retention-days: 30
 
   build-linux:
