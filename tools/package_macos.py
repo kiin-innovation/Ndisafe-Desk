@@ -108,7 +108,7 @@ def validate_bundle(app, version=None, arch=None):
         if not path.is_file():
             continue
         if arch:
-            run("lipo", "-verify_arch", "arm64" if arch == "aarch64" else arch, path)
+            run("lipo", path, "-verify_arch", "arm64" if arch == "aarch64" else arch)
         if sys.platform == "darwin":
             # Homebrew/build-machine dependencies cannot be shipped as absolute paths.
             for line in run("otool", "-L", path).decode().splitlines():
@@ -312,4 +312,7 @@ if __name__ == "__main__":
         main()
     except (PackageError, OSError, ValueError) as error:
         print(f"macOS packaging failed: {error}", file=sys.stderr)
+        if os.environ.get("GITHUB_ACTIONS"):
+            message = str(error).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+            print(f"::error title=macOS packaging::{message}", flush=True)
         sys.exit(1)

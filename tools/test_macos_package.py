@@ -67,6 +67,12 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(packaging.PackageError, "outdated"):
             packaging.validate_bundle(self.app)
 
+    def test_architecture_check_uses_lipo_input_before_variadic_architectures(self):
+        packaging.validate_bundle(self.app, "0.0.1", "aarch64")
+        for name in ("Ndisafe-desk", "service"):
+            self.runner.assert_any_call("lipo", self.app / "Contents/MacOS" / name,
+                                        "-verify_arch", "arm64")
+
     def test_missing_camera_permission_is_rejected(self):
         path = self.app / "Contents/Info.plist"
         with path.open("rb") as source:
