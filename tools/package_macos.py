@@ -124,8 +124,10 @@ def sign_bundle(app, identity="-"):
     run("xattr", "-cr", app)
     flags = ("--options", "0", "--timestamp=none") if identity == "-" else (
         "--options", "runtime", "--timestamp")
-    # Sign nested code before its enclosing framework or app; --deep is verification-only.
-    for path in [*bundle_code(app), app]:
+    # Signing the main executable also signs its app, so leave it to the final bundle step.
+    main_executable = app / "Contents/MacOS/Ndisafe-desk"
+    nested_code = [path for path in bundle_code(app) if path != main_executable]
+    for path in [*nested_code, app]:
         args = ["codesign", "--force", "--sign", identity, *flags]
         if path == app or path.parent == app / "Contents/MacOS":
             args.extend(("--entitlements", str(ENTITLEMENTS)))

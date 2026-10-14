@@ -93,6 +93,8 @@ class PackageTests(unittest.TestCase):
         paths = [call[-1] for call in signing]
         self.assertLess(paths.index(framework / "Example"), paths.index(framework))
         self.assertEqual(paths[-1], self.app)
+        self.assertNotIn(self.app / "Contents/MacOS/Ndisafe-desk", paths)
+        self.assertLess(paths.index(self.app / "Contents/MacOS/service"), paths.index(self.app))
         self.assertTrue(all("--deep" not in call for call in signing))
         self.assertIn(unittest.mock.call("codesign", "--verify", "--deep", "--strict",
                                         "--verbose=2", self.app), self.runner.call_args_list)
