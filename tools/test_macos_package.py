@@ -132,7 +132,13 @@ class MacIntegrationTests(unittest.TestCase):
             app = make_app(root, native=True)
             arch = "aarch64" if platform.machine() == "arm64" else "x86_64"
             with patch.dict(os.environ, {name: "" for name in packaging.SIGNING_ENV}):
-                packaging.package(app, "0.0.1", arch, root / "out", finder=False)
+                try:
+                    packaging.package(app, "0.0.1", arch, root / "out", finder=False)
+                except Exception as error:
+                    if os.environ.get("GITHUB_ACTIONS"):
+                        message = str(error).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+                        print(f"::error title=macOS installer integration::{message}", flush=True)
+                    raise
             self.assertTrue((root / "out" / f"ndisafe-desk-0.0.1-{arch}.dmg.sha256").exists())
             self.assertTrue((root / "out" / f"NDISafe-Desk-0.0.1-{arch}.pkg.sha256").exists())
             packaging.sign_bundle(app)
