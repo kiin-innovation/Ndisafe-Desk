@@ -186,13 +186,13 @@ class MacIntegrationTests(unittest.TestCase):
             self.assertTrue((root / "out" / f"ndisafe-desk-0.0.1-{arch}.dmg.sha256").exists())
             self.assertTrue((root / "out" / f"NDISafe-Desk-0.0.1-{arch}.pkg.sha256").exists())
             if os.environ.get("GITHUB_ACTIONS") == "true":
-                self.assert_installer_upgrades_old_identity(root, app, arch)
+                self.assert_installer_upgrades_existing_app(root, app, arch)
             packaging.sign_bundle(app)
             (app / "Contents/Resources/unsealed.txt").write_text("changed after signing")
             with self.assertRaises(packaging.PackageError):
                 packaging.run("codesign", "--verify", "--deep", "--strict", app)
 
-    def assert_installer_upgrades_old_identity(self, root, app, arch):
+    def assert_installer_upgrades_existing_app(self, root, app, arch):
         installed = Path("/Applications") / packaging.APP_NAME
         if installed.exists() or installed.is_symlink():
             self.fail("Refusing to replace an existing app on the test runner")
@@ -222,7 +222,7 @@ class MacIntegrationTests(unittest.TestCase):
             raise
         finally:
             packaging.run("sudo", "-n", "rm", "-rf", "--", installed)
-            packaging.run("sudo", "-n", "pkgutil", "--forget", packaging.BUNDLE_ID)
+            packaging.run("sudo", "-n", "pkgutil", "--forget", packaging.PACKAGE_ID)
 
 
 if __name__ == "__main__":

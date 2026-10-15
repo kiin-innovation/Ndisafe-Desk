@@ -9,7 +9,8 @@ PRODUCT_NAME = Ndisafe-desk
 PRODUCT_MODULE_NAME = NdisafeDesk
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.ndisafe.desk
+// Preserve the installed app identity for upgrades and macOS permission grants.
+PRODUCT_BUNDLE_IDENTIFIER = com.carriez.rustdesk
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 Kiin innovation. Ltd. All rights reserved.

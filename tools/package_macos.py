@@ -14,7 +14,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_NAME = "Ndisafe-desk.app"
-BUNDLE_ID = "com.ndisafe.desk"
+BUNDLE_ID = "com.carriez.rustdesk"
+PACKAGE_ID = "com.ndisafe.desk"
 ENTITLEMENTS = ROOT / "flutter/macos/Runner/Release.entitlements"
 SIGNING_ENV = (
     "MACOS_P12_BASE64", "MACOS_P12_PASSWORD", "MACOS_CODESIGN_IDENTITY",
@@ -236,13 +237,12 @@ def package(app, version, arch, output, finder=True):
                 "RootRelativeBundlePath": APP_NAME,
                 "BundleIsRelocatable": False,
                 "BundleIsVersionChecked": True,
-                # Pre-1.4.13 apps at this same path still use the RustDesk bundle ID.
-                "BundleHasStrictIdentifier": False,
+                "BundleHasStrictIdentifier": True,
                 "BundleOverwriteAction": "upgrade",
             }], dest)
         unsigned_pkg = work / "component.pkg"
         run("pkgbuild", "--root", stage, "--component-plist", components,
-            "--identifier", BUNDLE_ID, "--version", version,
+            "--identifier", PACKAGE_ID, "--version", version,
             "--install-location", "/Applications", "--ownership", "recommended", unsigned_pkg)
         if signed:
             run("productsign", "--sign", os.environ["MACOS_INSTALLER_IDENTITY"], unsigned_pkg, pkg)

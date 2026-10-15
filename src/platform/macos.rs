@@ -306,7 +306,7 @@ fn correct_app_name(s: &str) -> String {
     super::macos_install::privilege_template(
         s,
         &crate::get_app_name(),
-        &get_bundle_id().unwrap_or_else(|| "com.ndisafe.desk".to_owned()),
+        &get_bundle_id().unwrap_or_else(|| "com.carriez.rustdesk".to_owned()),
     )
 }
 
