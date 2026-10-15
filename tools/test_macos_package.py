@@ -212,8 +212,9 @@ class MacIntegrationTests(unittest.TestCase):
             packaging.run("sudo", "-n", "/usr/sbin/installer", "-pkg",
                           root / "out" / f"NDISafe-Desk-0.0.1-{arch}.pkg", "-target", "/")
             packaging.validate_bundle(installed, "0.0.1", arch)
-            packaging.run("codesign", "--verify", "--deep", "--strict", installed)
-            self.assertFalse((installed / "Contents/Resources/obsolete.txt").exists())
+            self.assertFalse((installed / "Contents/Resources/obsolete.txt").exists(),
+                             "PKG upgrade retained obsolete files from the previous bundle")
+            packaging.run("codesign", "--verify", "--deep", "--strict", "--verbose=4", installed)
             self.assertIn(b"0.0.1", packaging.run(installed / "Contents/MacOS/Ndisafe-desk", "--version"))
         except Exception as error:
             message = str(error).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
