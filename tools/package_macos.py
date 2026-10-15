@@ -236,7 +236,8 @@ def package(app, version, arch, output, finder=True):
                 "RootRelativeBundlePath": APP_NAME,
                 "BundleIsRelocatable": False,
                 "BundleIsVersionChecked": True,
-                "BundleHasStrictIdentifier": True,
+                # Pre-1.4.13 apps at this same path still use the RustDesk bundle ID.
+                "BundleHasStrictIdentifier": False,
                 "BundleOverwriteAction": "upgrade",
             }], dest)
         unsigned_pkg = work / "component.pkg"

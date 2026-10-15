@@ -185,10 +185,43 @@ class MacIntegrationTests(unittest.TestCase):
                     raise
             self.assertTrue((root / "out" / f"ndisafe-desk-0.0.1-{arch}.dmg.sha256").exists())
             self.assertTrue((root / "out" / f"NDISafe-Desk-0.0.1-{arch}.pkg.sha256").exists())
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                self.assert_installer_upgrades_old_identity(root, app, arch)
             packaging.sign_bundle(app)
             (app / "Contents/Resources/unsealed.txt").write_text("changed after signing")
             with self.assertRaises(packaging.PackageError):
                 packaging.run("codesign", "--verify", "--deep", "--strict", app)
+
+    def assert_installer_upgrades_old_identity(self, root, app, arch):
+        installed = Path("/Applications") / packaging.APP_NAME
+        if installed.exists() or installed.is_symlink():
+            self.fail("Refusing to replace an existing app on the test runner")
+        old_app = root / "old" / packaging.APP_NAME
+        old_app.parent.mkdir()
+        packaging.run("ditto", app, old_app)
+        info_path = old_app / "Contents/Info.plist"
+        with info_path.open("rb") as source:
+            info = plistlib.load(source)
+        info.update(CFBundleIdentifier="com.carriez.rustdesk",
+                    CFBundleShortVersionString="0.0.0", CFBundleVersion="0")
+        with info_path.open("wb") as dest:
+            plistlib.dump(info, dest)
+        (old_app / "Contents/Resources/obsolete.txt").write_text("old installation")
+        try:
+            packaging.run("sudo", "-n", "ditto", old_app, installed)
+            packaging.run("sudo", "-n", "/usr/sbin/installer", "-pkg",
+                          root / "out" / f"NDISafe-Desk-0.0.1-{arch}.pkg", "-target", "/")
+            packaging.validate_bundle(installed, "0.0.1", arch)
+            packaging.run("codesign", "--verify", "--deep", "--strict", installed)
+            self.assertFalse((installed / "Contents/Resources/obsolete.txt").exists())
+            self.assertIn(b"0.0.1", packaging.run(installed / "Contents/MacOS/Ndisafe-desk", "--version"))
+        except Exception as error:
+            message = str(error).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+            print(f"::error title=macOS installer upgrade::{message}", flush=True)
+            raise
+        finally:
+            packaging.run("sudo", "-n", "rm", "-rf", "--", installed)
+            packaging.run("sudo", "-n", "pkgutil", "--forget", packaging.BUNDLE_ID)
 
 
 if __name__ == "__main__":

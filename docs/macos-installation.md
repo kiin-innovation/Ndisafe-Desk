@@ -15,6 +15,8 @@ or later. Use x86_64 for Intel Macs, requiring macOS 10.14 or later.
 - Sign the complete app after copying the Rust service helper into its bundle.
 - Stage only the app for PKG installation; do not install the Xcode products
   directory or relocate an upgrade onto a copy running from a mounted DMG.
+- Allow PKG upgrades over earlier NDISafe apps that retained the RustDesk bundle
+  identifier at the same installation path.
 - Build a compressed HFS+ disk image from a staging folder containing the app,
   an Applications shortcut and installation notes.
 - Verify image integrity, mount the finished DMG, verify its app signature, and
@@ -71,6 +73,8 @@ rustc --edition=2021 --test src/platform/macos_install.rs -o macos-install-tests
 On macOS, the Python suite also compiles a small native fixture and exercises real
 codesign, DMG creation/mounting and PKG extraction. The build workflow runs this
 on both Intel and Apple Silicon, then validates the actual release app separately.
+On GitHub's temporary Mac runners, it also installs the PKG over an old-identity
+fixture and checks the installed signature, version and removal of obsolete files.
 
 For a downloaded installer, compare its checksum with the matching .sha256 file
 and run hdiutil verify on the DMG. A checksum mismatch indicates a different or
