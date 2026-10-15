@@ -8,7 +8,7 @@ pub fn install_name(display_name: &str) -> &str {
 pub fn privilege_template(source: &str, display_name: &str, bundle_id: &str) -> String {
     let name = install_name(display_name);
     source
-        .replace("com.carriez.rustdesk", bundle_id)
+        .replace("com.carriez.rustdesk", "__NDISAFE_BUNDLE_ID__")
         .replace(
             "/Applications/RustDesk.app/Contents/MacOS/RustDesk",
             &format!("/Applications/{name}.app/Contents/MacOS/{name}"),
@@ -28,6 +28,7 @@ pub fn privilege_template(source: &str, display_name: &str, bundle_id: &str) -> 
         .replace("pgrep -x 'RustDesk'", &format!("pgrep -x '{name}'"))
         .replace("rustdesk", &name.to_lowercase())
         .replace("RustDesk", display_name)
+        .replace("__NDISAFE_BUNDLE_ID__", bundle_id)
 }
 
 #[cfg(test)]
@@ -69,5 +70,18 @@ mod tests {
     fn other_product_names_are_preserved() {
         assert_eq!(install_name("RustDesk"), "RustDesk");
         assert_eq!(install_name("SupportClient"), "SupportClient");
+    }
+
+    #[test]
+    fn branding_preserves_the_legacy_bundle_identity_in_service_plists() {
+        let bundle_id = "com.carriez.rustdesk";
+        for source in [
+            include_str!("privileges_scripts/agent.plist"),
+            include_str!("privileges_scripts/daemon.plist"),
+        ] {
+            let plist = privilege_template(source, "NDISafe Desk", bundle_id);
+            assert!(plist.contains(&format!("<string>{bundle_id}</string>")));
+            assert!(!plist.contains("com.carriez.ndisafe-desk"));
+        }
     }
 }
