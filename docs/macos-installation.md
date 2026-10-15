@@ -10,7 +10,7 @@ configuration directory.
 Use the aarch64 download for Apple Silicon (M-series) Macs, requiring macOS 12.3
 or later. Use x86_64 for Intel Macs, requiring macOS 10.14 or later.
 
-## Fixes in 1.4.13
+## Fixes in 1.4.14
 
 - Replace the macOS app, disk-volume, menu-bar and in-app RustDesk icons with the
   checked-in NDISafe artwork.
@@ -27,6 +27,7 @@ or later. Use x86_64 for Intel Macs, requiring macOS 10.14 or later.
   camera/microphone permission descriptions.
 - Align native service and updater paths with Ndisafe-desk.app while preserving
   existing preferences and IPC socket names.
+- Preserve the exact app bundle identifier in background-service associations.
 - Publish a SHA-256 sidecar for each installer and a JSON verification manifest.
 
 Users may still need to approve Camera or Microphone access when using calls for

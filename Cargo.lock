@@ -4940,7 +4940,7 @@ dependencies = [
 
 [[package]]
 name = "ndisafe-desk"
-version = "1.4.13"
+version = "1.4.14"
 dependencies = [
  "android-wakelock",
  "android_logger",
@@ -7287,7 +7287,7 @@ dependencies = [
 
 [[package]]
 name = "rustdesk-portable-packer"
-version = "1.4.13"
+version = "1.4.14"
 dependencies = [
  "brotli",
  "dirs 5.0.1",

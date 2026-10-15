@@ -20,7 +20,7 @@ env:
   NASM_VERSION: "2.16.03"
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  VERSION: "1.4.13"
+  VERSION: "1.4.14"
 
 jobs:
   validate-release:
