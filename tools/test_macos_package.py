@@ -83,6 +83,37 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(packaging.PackageError, "NSCamera"):
             packaging.validate_bundle(self.app)
 
+    def test_library_identity_is_not_an_external_dependency(self):
+        self.runner.return_value = b"""App:
+Load command 1
+          cmd LC_ID_DYLIB
+      cmdsize 112
+         name /Users/runner/build/App.framework/Versions/A/App (offset 24)
+Load command 2
+          cmd LC_LOAD_DYLIB
+      cmdsize 56
+         name /usr/lib/libSystem.B.dylib (offset 24)
+Load command 3
+          cmd LC_LOAD_WEAK_DYLIB
+      cmdsize 80
+         name @rpath/Example.framework/Versions/A/Example (offset 24)
+"""
+        self.assertEqual(list(packaging.linked_libraries(self.app)), [
+            "/usr/lib/libSystem.B.dylib", "@rpath/Example.framework/Versions/A/Example",
+        ])
+        with patch.object(packaging.sys, "platform", "darwin"):
+            packaging.validate_bundle(self.app)
+
+    def test_external_runtime_dependency_is_rejected(self):
+        self.runner.return_value = b"""App:
+Load command 1
+          cmd LC_LOAD_DYLIB
+         name /opt/homebrew/lib/libexample.dylib (offset 24)
+"""
+        with patch.object(packaging.sys, "platform", "darwin"):
+            with self.assertRaisesRegex(packaging.PackageError, "Nonportable library dependency"):
+                packaging.validate_bundle(self.app)
+
     def test_nested_code_is_signed_before_outer_bundle(self):
         framework = self.app / "Contents/Frameworks/Example.framework"
         framework.mkdir(parents=True)
@@ -138,6 +169,11 @@ class MacIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="ndisafe-integration-") as temporary:
             root = Path(temporary)
             app = make_app(root, native=True)
+            frameworks = app / "Contents/Frameworks"
+            frameworks.mkdir()
+            packaging.run("clang", "-dynamiclib", root / "main.c", "-install_name",
+                          root / "build-only/libfixture.dylib",
+                          "-o", frameworks / "libfixture.dylib")
             arch = "aarch64" if platform.machine() == "arm64" else "x86_64"
             with patch.dict(os.environ, {name: "" for name in packaging.SIGNING_ENV}):
                 try:

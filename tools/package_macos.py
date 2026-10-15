@@ -79,6 +79,21 @@ def bundle_code(app):
     return sorted(code, key=lambda path: len(path.parts), reverse=True)
 
 
+def linked_libraries(path):
+    load_commands = {
+        "LC_LOAD_DYLIB", "LC_LOAD_WEAK_DYLIB", "LC_REEXPORT_DYLIB",
+        "LC_LAZY_LOAD_DYLIB", "LC_LOAD_UPWARD_DYLIB",
+    }
+    command = None
+    # LC_ID_DYLIB identifies the library itself; it is not a dependency to load.
+    for line in run("otool", "-l", path).decode().splitlines():
+        field = line.strip()
+        if field.startswith("cmd "):
+            command = field[4:]
+        elif command in load_commands and field.startswith("name "):
+            yield field[5:].rsplit(" (offset ", 1)[0]
+
+
 def validate_bundle(app, version=None, arch=None):
     if app.name != APP_NAME:
         raise PackageError(f"Expected {APP_NAME}, received {app.name}")
@@ -111,9 +126,8 @@ def validate_bundle(app, version=None, arch=None):
             run("lipo", path, "-verify_arch", "arm64" if arch == "aarch64" else arch)
         if sys.platform == "darwin":
             # Homebrew/build-machine dependencies cannot be shipped as absolute paths.
-            for line in run("otool", "-L", path).decode().splitlines():
-                dependency = line.strip().split(" (", 1)[0]
-                if dependency.startswith("/") and not dependency.endswith(":"):
+            for dependency in linked_libraries(path):
+                if dependency.startswith("/"):
                     if not dependency.startswith(("/System/Library/", "/usr/lib/")):
                         raise PackageError(f"Nonportable library dependency in {path.name}: {dependency}")
     return info
